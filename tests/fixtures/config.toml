@@ -1,0 +1,10 @@
+# Ivaldi Test Configuration
+#
+# Used by: tests/tier2_*.rs
+# Purpose: Isolated test environment - never touches user config
+
+[settings]
+enable_gitignore = false
+
+# No API key in tests
+# api_key = ""

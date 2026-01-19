@@ -1,0 +1,8 @@
+servers:
+  ivaldi:
+    image: daryltucker/ivaldi-mcp:latest
+    env:
+      IVALDI_LOG: "debug"
+      IVALDI_ROOT: "/projects"
+    volumes:
+      - "${HOME}/Projects/:/projects"

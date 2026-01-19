@@ -1,0 +1,84 @@
+# ivaldi-server
+#
+# PURPOSE:
+#   MCP (Model Context Protocol) server for AI Agent file operations.
+#   This is the primary interface for Agents interacting with ivaldi.
+#
+# ARCHITECTURE:
+#   main.rs      → Entry point, server initialization
+#   handler.rs   → JSON-RPC request handling
+#   tools/       → MCP tool implementations
+#   resources/   → MCP resource exposure
+#
+# PHILOSOPHY:
+#   - Agent-first design (JSON everywhere)
+#   - Third Channel integrated (advisory in responses)
+#   - Pre-flight validation on all writes
+#   - ADT integration for prophetic errors
+#
+# MCP TOOLS EXPOSED (Planned):
+#   - find_files, list_dir, read_file
+#   - create_file, write_file, edit_file
+#   - run_command (whitelisted)
+#   - undo, history
+#
+# THE THIRD CHANNEL:
+#   Every MCP response includes the advisory array.
+#   Agents can scan for warnings without full re-evaluation.
+#
+# See: docs/MAN_AGENT.md, docs/MCP_SERVER.md (once implemented)
+
+[package]
+name = "ivaldi-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "ivaldi_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ivaldi-server"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "fs", "io-util", "process", "net"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-journald = { workspace = true }
+anyhow = { workspace = true }
+sha2 = { workspace = true }
+schemars = { workspace = true }
+vecdb-common = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.12.2"
+clap = { version = "4.5", features = ["derive"] }
+
+ivaldi-core = { path = "../ivaldi-core" }
+reqwest = { version = "0.12", features = ["json"] }
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# MCP / JSON-RPC (future)
+# Will need: jsonrpsee or similar
+
+[build-dependencies]
+ivaldi-core = { path = "../ivaldi-core" }
+schemars = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
+vecq = { git = "https://github.com/daryltucker/vecdb", version = "0.0.9" }
+tokio = { workspace = true, features = ["rt", "macros"] }
+
+[dev-dependencies]
+tempfile = "3.24.0"
+reqwest = { version = "0.12", features = ["json"] }
+

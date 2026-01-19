@@ -1,0 +1,661 @@
+{
+  "version": "0.1.0",
+  "protocol": "mcp-2024-11-05",
+  "generated_at": "build-time",
+  "tools": [
+    {
+      "name": "find_files",
+      "description": "Arguments for the find_files tool\n\n**Behavior**: Searches for files matching a glob pattern. **Safety**: - Max depth: 5 (prevents infinite recursion). - Max entries: 100 (prevents context flooding). - Respects `.gitignore` (if enabled) and `.aiignore`. **Advisory**: Warns if results are truncated. **Usage**: Use to locate files when you don't know the exact path.",
+      "inputSchema": {
+        "properties": {
+          "enable_gitignore": {
+            "description": "Whether to evaluate and restrict based on .gitignore (default: false)",
+            "default": false,
+            "type": "boolean"
+          },
+          "max_depth": {
+            "description": "Maximum depth to traverse (default: 5)",
+            "default": 5,
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_entries": {
+            "description": "Maximum number of entries to return (default: 100)",
+            "default": 100,
+            "type": "integer",
+            "minimum": 0
+          },
+          "path": {
+            "description": "The root directory to search in (default: \".\")",
+            "default": ".",
+            "type": "string"
+          },
+          "pattern": {
+            "description": "Glob pattern to match (e.g., \"*.rs\", \"target/**/lib.rs\")",
+            "type": "string"
+          },
+          "respect_aiignore": {
+            "description": "Whether to respect .aiignore (default: true)",
+            "default": true,
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "description": "Timeout in milliseconds (default: 2000)",
+            "default": 2000,
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "title": "FindFilesArgs",
+        "description": "Arguments for the find_files tool\n\n**Behavior**: Searches for files matching a glob pattern. **Safety**: - Max depth: 5 (prevents infinite recursion). - Max entries: 100 (prevents context flooding). - Respects `.gitignore` (if enabled) and `.aiignore`. **Advisory**: Warns if results are truncated. **Usage**: Use to locate files when you don't know the exact path.",
+        "type": "object",
+        "required": [
+          "pattern"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "read_file",
+      "description": "Arguments for the read_file tool\n\n**Behavior**: Reads file content. **Safety**: - **Blast Shield**: 10MB limit. - **Binary Protection**: Fails on binary files. - **Smart Truncation**: If no lines specified and >1000 lines, returns head (500) + tail (500). **Usage**: 1. Read without args first. 2. If truncated, use `from_line`/`to_line` to read specific sections. 3. Use `query` for AST-based extraction (e.g., `.functions[]`). 4. Use `grep` for regex pattern matching.",
+      "inputSchema": {
+        "properties": {
+          "context_lines": {
+            "description": "Number of context lines around grep matches (default: 2)",
+            "default": 2,
+            "type": "integer",
+            "minimum": 0
+          },
+          "force": {
+            "description": "Force read even if binary/large (dangerous!)",
+            "default": false,
+            "type": "boolean"
+          },
+          "from_line": {
+            "description": "Start line (1-indexed, inclusive)",
+            "type": "integer",
+            "minimum": 0
+          },
+          "grep": {
+            "description": "Regex pattern for line matching (e.g., \"^use \", \"TODO:\")",
+            "type": "string"
+          },
+          "path": {
+            "description": "Path to the file to read",
+            "type": "string"
+          },
+          "query": {
+            "description": "vecq query for AST-based extraction (e.g., \".functions[]\", \".imports[]\")",
+            "type": "string"
+          },
+          "to_line": {
+            "description": "End line (1-indexed, inclusive)",
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "title": "ReadFileArgs",
+        "description": "Arguments for the read_file tool\n\n**Behavior**: Reads file content. **Safety**: - **Blast Shield**: 10MB limit. - **Binary Protection**: Fails on binary files. - **Smart Truncation**: If no lines specified and >1000 lines, returns head (500) + tail (500). **Usage**: 1. Read without args first. 2. If truncated, use `from_line`/`to_line` to read specific sections. 3. Use `query` for AST-based extraction (e.g., `.functions[]`). 4. Use `grep` for regex pattern matching.",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "read_files",
+      "description": "Arguments for the read_files tool\n\n**Behavior**: Batch-reads multiple files at once. **Safety**: Inherits individual safety checks from `read_file`. **Usage**: Use to read multiple files at once. Supports safety boundaries for file size and count.",
+      "inputSchema": {
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "title": "ReadFilesArgs",
+        "description": "Arguments for the read_files tool\n\n**Behavior**: Batch-reads multiple files at once. **Safety**: Inherits individual safety checks from `read_file`. **Usage**: Use to read multiple files at once. Supports safety boundaries for file size and count.",
+        "type": "object",
+        "required": [
+          "paths"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_dir",
+      "description": "Arguments for the list_dir tool\n\n**Behavior**: Lists directory contents with metadata (type, size).\n\n**Safety**: - Non-recursive. Use `find_files` for deep search. - Caps output at 1000 items (heuristic safety).\n\n**Usage**: Use to map out local structure, check file existence, or inspect file sizes and modification times in a single directory.",
+      "inputSchema": {
+        "properties": {
+          "enable_gitignore": {
+            "description": "Whether to evaluate and restrict based on .gitignore (default: false)",
+            "default": false,
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Directory path to list (default: \".\")",
+            "default": ".",
+            "type": "string"
+          },
+          "respect_aiignore": {
+            "description": "Whether to respect .aiignore (default: true)",
+            "default": true,
+            "type": "boolean"
+          },
+          "show_hidden": {
+            "description": "Show hidden files (default: false)",
+            "default": false,
+            "type": "boolean"
+          },
+          "sort": {
+            "description": "Sort entries by name (default: true)",
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "title": "ListDirArgs",
+        "description": "Arguments for the list_dir tool\n\n**Behavior**: Lists directory contents with metadata (type, size).\n\n**Safety**: - Non-recursive. Use `find_files` for deep search. - Caps output at 1000 items (heuristic safety).\n\n**Usage**: Use to map out local structure, check file existence, or inspect file sizes and modification times in a single directory.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": []
+      }
+    },
+    {
+      "name": "write_file",
+      "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count when appending to help you decide if you intended to overwrite. **Usage**: Use for creating new files or adding content. Use `overwrite=true` only when you are certain you want to replace everything.",
+      "inputSchema": {
+        "properties": {
+          "append": {
+            "description": "Append to existing file (default: false)",
+            "default": false,
+            "type": "boolean"
+          },
+          "content": {
+            "description": "Content to write",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Overwrite existing file (default: false)",
+            "default": false,
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Path to the file to write",
+            "type": "string"
+          }
+        },
+        "title": "WriteFileArgs",
+        "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count when appending to help you decide if you intended to overwrite. **Usage**: Use for creating new files or adding content. Use `overwrite=true` only when you are certain you want to replace everything.",
+        "type": "object",
+        "required": [
+          "content",
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "edit_file",
+      "description": "Arguments for the edit_file tool\n\n**Behavior**: Surgically modifies content using selectors. **Selectors (Exactly one required)**: - `query`: `vecq` query string for AST node matching. - `grep`: Regex pattern for matching a single line. - `from_line`/`to_line`: Exact 1-indexed line range.\n\n**Safety**: - **AST-First**: Nodes are more stable than lines for source code. - **Pre-flight Logic**: Heuristics check for git-ignore and syntax errors.\n\n**Usage**: Use to modify specific parts of a file without rewriting the whole content.",
+      "inputSchema": {
+        "properties": {
+          "from_line": {
+            "description": "Start line (1-indexed)",
+            "type": "integer",
+            "minimum": 0
+          },
+          "grep": {
+            "description": "Regex line matching selector",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Overwrite existing file (default: true)",
+            "default": true,
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Path to the file to edit",
+            "type": "string"
+          },
+          "query": {
+            "description": "vecq query selector (AST)",
+            "type": "string"
+          },
+          "replacement": {
+            "description": "Replacement content",
+            "type": "string"
+          },
+          "to_line": {
+            "description": "End line (1-indexed)",
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "title": "EditFileArgs",
+        "description": "Arguments for the edit_file tool\n\n**Behavior**: Surgically modifies content using selectors. **Selectors (Exactly one required)**: - `query`: `vecq` query string for AST node matching. - `grep`: Regex pattern for matching a single line. - `from_line`/`to_line`: Exact 1-indexed line range.\n\n**Safety**: - **AST-First**: Nodes are more stable than lines for source code. - **Pre-flight Logic**: Heuristics check for git-ignore and syntax errors.\n\n**Usage**: Use to modify specific parts of a file without rewriting the whole content.",
+        "type": "object",
+        "required": [
+          "path",
+          "replacement"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "undo",
+      "description": "Arguments for the undo tool\n\n**Behavior**: Reverts the last operation performed in the project scope. **Mechanism**: Reads journal, finds last backup, and restores it. **Safety**: - **Checksum Verification**: Ensures file hasn't been modified externally since the last operation. - **Journaling**: The undo itself is logged as a new operation. **Usage**: Call immediately if a `write_file` or `edit_file` had unintended consequences.",
+      "inputSchema": {
+        "properties": {
+          "path": {
+            "description": "Optional path to anchor project root discovery (default: \".\")",
+            "default": ".",
+            "type": "string"
+          }
+        },
+        "title": "UndoArgs",
+        "description": "Arguments for the undo tool\n\n**Behavior**: Reverts the last operation performed in the project scope. **Mechanism**: Reads journal, finds last backup, and restores it. **Safety**: - **Checksum Verification**: Ensures file hasn't been modified externally since the last operation. - **Journaling**: The undo itself is logged as a new operation. **Usage**: Call immediately if a `write_file` or `edit_file` had unintended consequences.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": []
+      }
+    },
+    {
+      "name": "analyze_dir",
+      "description": "Arguments for the analyze_dir tool\n\n**Behavior**: Provides a high-level summary of a directory's structure and contents. **Usage**: Use to quickly understand the layout of a project or a large subdirectory.",
+      "inputSchema": {
+        "properties": {
+          "ignore_patterns": {
+            "description": "Optional patterns to ignore (in addition to gitignore)",
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_depth": {
+            "description": "Maximum depth (default: 5)",
+            "default": 5,
+            "type": "integer",
+            "minimum": 0
+          },
+          "path": {
+            "description": "Path to analyze (default: \".\")",
+            "default": ".",
+            "type": "string"
+          }
+        },
+        "title": "AnalyzeDirArgs",
+        "description": "Arguments for the analyze_dir tool\n\n**Behavior**: Provides a high-level summary of a directory's structure and contents. **Usage**: Use to quickly understand the layout of a project or a large subdirectory.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": []
+      }
+    },
+    {
+      "name": "analyze_file",
+      "description": "Arguments for the analyze_file tool\n\n**Behavior**: Performs deep analysis of a single file, extracting symbols (functions, classes) and metadata. **Usage**: Use to search the codebase for specific patterns or symbols. Supports friendly and power modes.",
+      "inputSchema": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "title": "AnalyzeFileArgs",
+        "description": "Arguments for the analyze_file tool\n\n**Behavior**: Performs deep analysis of a single file, extracting symbols (functions, classes) and metadata. **Usage**: Use to search the codebase for specific patterns or symbols. Supports friendly and power modes.",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "search_code",
+      "description": "Arguments for the search_code tool\n\n**Behavior**: Executes AST-aware structural queries (jq-style) against code files.\n\n**Modes**: - **Friendly Mode**: Use `category` (e.g., \"functions\") and `name_pattern` (regex) to find elements without writing jq. - **Power Mode**: Use `query` (jq) for high-precision extraction of specific code elements.\n\n**Safety**: - Max depth: 5 by default. - Respects `.gitignore`.\n\n**Usage**: Use to locate function definitions, class structures, or specific imports across a project without reading every file.",
+      "inputSchema": {
+        "properties": {
+          "category": {
+            "description": "Friendly Mode: Category to search \"functions\", \"classes\", \"structs\", \"imports\", \"comments\"",
+            "type": "string"
+          },
+          "depth": {
+            "description": "Max depth for directory recursion (default: 5)",
+            "default": 5,
+            "type": "integer",
+            "minimum": 0
+          },
+          "language": {
+            "description": "Optional language override (e.g., \"rust\", \"python\") Only applies when searching a single file.",
+            "type": "string"
+          },
+          "name_pattern": {
+            "description": "Friendly Mode: Regex to match name (e.g. \"search_.*\")",
+            "type": "string"
+          },
+          "path": {
+            "description": "Path to the file or directory to search",
+            "type": "string"
+          },
+          "pattern": {
+            "description": "Optional glob pattern to filter files in directory (e.g. \"*.rs\")",
+            "type": "string"
+          },
+          "query": {
+            "description": "AST Query (jq-style). If provided, this takes precedence (Power Mode). If omitted, use `category` and `name_pattern` (Friendly Mode).",
+            "type": "string"
+          }
+        },
+        "title": "SearchCodeArgs",
+        "description": "Arguments for the search_code tool\n\n**Behavior**: Executes AST-aware structural queries (jq-style) against code files.\n\n**Modes**: - **Friendly Mode**: Use `category` (e.g., \"functions\") and `name_pattern` (regex) to find elements without writing jq. - **Power Mode**: Use `query` (jq) for high-precision extraction of specific code elements.\n\n**Safety**: - Max depth: 5 by default. - Respects `.gitignore`.\n\n**Usage**: Use to locate function definitions, class structures, or specific imports across a project without reading every file.",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "git_read",
+      "description": "Arguments for the git_read tool\n\n**Behavior**: Provides read-only access to Git history. Supports blame, log, diff, and search operations.\n\n**Actions**: - `blame`: Identifies who changed which lines in a file. - `log`: Lists commit history, optionally filtered by path or time. - `diff`: Returns the changes between branches, tags, or commits. - `search`: Searches commit messages or content using regex. - `raw`: Executes arbitrary git commands (use with caution).\n\n**Safety**: Read-only. Does not modify the repository state.\n\n**Usage**: Use to understand the evolution of code, find when a bug was introduced, or compare implementations across versions.",
+      "inputSchema": {
+        "properties": {
+          "project_root": {
+            "description": "Optional: Override project root for git operations. If omitted, uses session's project_root from MCP initialize.",
+            "type": "string"
+          }
+        },
+        "title": "GitReadArgs",
+        "description": "Arguments for the git_read tool\n\n**Behavior**: Provides read-only access to Git history. Supports blame, log, diff, and search operations.\n\n**Actions**: - `blame`: Identifies who changed which lines in a file. - `log`: Lists commit history, optionally filtered by path or time. - `diff`: Returns the changes between branches, tags, or commits. - `search`: Searches commit messages or content using regex. - `raw`: Executes arbitrary git commands (use with caution).\n\n**Safety**: Read-only. Does not modify the repository state.\n\n**Usage**: Use to understand the evolution of code, find when a bug was introduced, or compare implementations across versions.",
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "path"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "blame"
+                ]
+              },
+              "lines": {
+                "default": null,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "log"
+                ]
+              },
+              "limit": {
+                "default": 50,
+                "type": "integer",
+                "minimum": 0
+              },
+              "path": {
+                "type": "string"
+              },
+              "since": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "from"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "diff"
+                ]
+              },
+              "from": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "stat_only": {
+                "default": false,
+                "type": "boolean"
+              },
+              "to": {
+                "default": "HEAD",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "query"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "search"
+                ]
+              },
+              "limit": {
+                "default": 50,
+                "type": "integer",
+                "minimum": 0
+              },
+              "path": {
+                "type": "string"
+              },
+              "query": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "args"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "raw"
+                ]
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "additionalProperties": false,
+        "required": []
+      }
+    },
+    {
+      "name": "read_syslogs",
+      "description": "Arguments for the read_syslogs tool\n\n**Behavior**: Fetches structured logs from systemd-journald.\n\n**Filters**: Supports filtering by service (unit name), log level, time window, and regex pattern.\n\n**Safety**: - Bounded by `limit` (default 100). - Direct FFI access to journald (no subprocesses).\n\n**Usage**: Use to debug service failures, monitor system health, or trace application logs in a production-like environment.\n\n**Examples**: - `since: \"10m\"` (last 10 minutes) - `level: \"error\"` (only errors and above)",
+      "inputSchema": {
+        "definitions": {
+          "LogLevel": {
+            "description": "Log levels for filtering",
+            "type": "string",
+            "enum": [
+              "debug",
+              "info",
+              "notice",
+              "warning",
+              "error",
+              "critical",
+              "alert",
+              "emergency"
+            ]
+          }
+        },
+        "title": "ReadSyslogsArgs",
+        "description": "Arguments for the read_syslogs tool\n\n**Behavior**: Fetches structured logs from systemd-journald.\n\n**Filters**: Supports filtering by service (unit name), log level, time window, and regex pattern.\n\n**Safety**: - Bounded by `limit` (default 100). - Direct FFI access to journald (no subprocesses).\n\n**Usage**: Use to debug service failures, monitor system health, or trace application logs in a production-like environment.\n\n**Examples**: - `since: \"10m\"` (last 10 minutes) - `level: \"error\"` (only errors and above)",
+        "type": "object",
+        "properties": {
+          "boot": {
+            "description": "Boot to query (e.g. \"current\", \"previous\")",
+            "type": "string"
+          },
+          "level": {
+            "description": "Minimum log level to include",
+            "anyOf": [
+              {
+                "$ref": "#/definitions/LogLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "limit": {
+            "description": "Maximum number of entries to return (default: 100)",
+            "default": 100,
+            "type": "integer",
+            "minimum": 0
+          },
+          "pattern": {
+            "description": "Regex pattern to search for in log messages",
+            "type": "string"
+          },
+          "service": {
+            "description": "systemd unit name (e.g. \"ivaldi-server\")",
+            "type": "string"
+          },
+          "since": {
+            "description": "Time window to query (e.g. \"10m\", \"1h\", \"1d\" or ISO timestamp)",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": []
+      }
+    },
+    {
+      "name": "session_init",
+      "description": "Arguments for the session_init tool\n\n**Behavior**: Initializes a new session or switches to an existing one. Creates a dedicated state directory. **Usage**: Call this when starting a new high-level task or moving to a different project area.",
+      "inputSchema": {
+        "properties": {
+          "auto_create": {
+            "description": "Whether to create a new session if it doesn't exist. Default: true.",
+            "default": true,
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Unique identifier",
+            "type": "string"
+          },
+          "root": {
+            "description": "Optional root directory. Defaults to CWD if not provided.",
+            "type": "string"
+          }
+        },
+        "title": "SessionInitArgs",
+        "description": "Arguments for the session_init tool\n\n**Behavior**: Initializes a new session or switches to an existing one. Creates a dedicated state directory. **Usage**: Call this when starting a new high-level task or moving to a different project area.",
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "session_list",
+      "description": "Arguments for the session_list tool\n\n**Behavior**: Lists all active and archived sessions. **Usage**: Use to discover previous work contexts or resume an existing session.",
+      "inputSchema": {
+        "type": "object",
+        "title": "SessionListArgs",
+        "description": "Arguments for the session_list tool\n\n**Behavior**: Lists all active and archived sessions. **Usage**: Use to discover previous work contexts or resume an existing session.",
+        "additionalProperties": false,
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "session_get",
+      "description": "Arguments for `session_get`\n\n**Behavior**: Retrieves details for a specific session or the current one. **Returns**: Metadata, active headers, and stats. **Usage**: Use to verify current context or inspect another session's state.",
+      "inputSchema": {
+        "properties": {
+          "id": {
+            "description": "Optional ID. If omitted, returns current session.",
+            "type": "string"
+          }
+        },
+        "title": "SessionGetArgs",
+        "description": "Arguments for `session_get`\n\n**Behavior**: Retrieves details for a specific session or the current one. **Returns**: Metadata, active headers, and stats. **Usage**: Use to verify current context or inspect another session's state.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": []
+      }
+    },
+    {
+      "name": "session_update",
+      "description": "Arguments for the session_update tool\n\n**Behavior**: Updates metadata for the current session. **Usage**: Use to add tags, change labels, or update status during a task.",
+      "inputSchema": {
+        "properties": {
+          "add_tags": {
+            "description": "Tags to ADD to the session",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label": {
+            "description": "New human-readable label",
+            "type": "string"
+          },
+          "remove_tags": {
+            "description": "Tags to REMOVE from the session",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "title": "SessionUpdateArgs",
+        "description": "Arguments for the session_update tool\n\n**Behavior**: Updates metadata for the current session. **Usage**: Use to add tags, change labels, or update status during a task.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": []
+      }
+    }
+  ]
+}

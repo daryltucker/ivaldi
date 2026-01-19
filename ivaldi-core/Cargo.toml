@@ -1,0 +1,61 @@
+# ivaldi-core
+#
+# PURPOSE:
+#   Core library containing types, traits, and business logic for ivaldi-mcp.
+#   This crate is agnostic to interface (CLI or MCP) - pure logic only.
+#
+# ARCHITECTURE:
+#   response.rs  → IvaldiResponse, AdvisoryMessage, ErrorDetail
+#   file_ops.rs  → Find, list, read, create, write, edit, delete
+#   ast_edit.rs  → AST-based editing via vecq integration
+#   undo.rs      → Operation journal and undo stack
+#   aiignore.rs  → .aiignore parsing and matching
+#
+# PHILOSOPHY:
+#   - All operations return IvaldiResponse (never raw data)
+#   - Advisory channel populated when relevant
+#   - Pre-flight validation before writes
+#   - Operations are journaled for undo
+#
+# KEY TYPES:
+#   IvaldiResponse<T>  → Result wrapper with advisory channel
+#   AdvisoryMessage    → Source (tool/server/adt), level, message, action
+#   FileTarget         → Path or AST node reference
+#   Operation          → Journaled operation for undo
+#
+# See: docs/PHILOSOPHY.md (Section 4: Third Channel)
+
+[package]
+name = "ivaldi-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+walkdir.workspace = true
+glob.workspace = true
+ignore.workspace = true
+tracing.workspace = true
+fs2 = "0.4.3"
+uuid = { version = "1.19.0", features = ["v4", "serde"] }
+chrono = { version = "0.4.42", features = ["serde"] }
+schemars = { version = "0.8.21", features = ["chrono"] }
+sha2.workspace = true
+tempfile = "3.24.0"
+regex = "1.12.2"
+vecq.workspace = true
+vecdb-common.workspace = true
+tokio.workspace = true
+strsim = "0.11.1"
+libc = "0.2.180"
+toml = "0.9.11"
+git2 = "0.19"
+systemd = "0.10"
+
+[dev-dependencies]
+tempfile = "3.24.0"

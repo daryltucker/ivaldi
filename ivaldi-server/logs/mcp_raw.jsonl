@@ -1,0 +1,188 @@
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpPhPCAf/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpYEZRsp/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpTvrEVJ/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpYstgpA/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpA3A71j/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpvDKdpK/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpaH4z5p/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpPbcY1w/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpbu4yXa/agent_root"},"name":"session_init"}}{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpJq0WHC/agent_root"},"name":"session_init"}}
+
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpY3UxXE/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"initializationOptions":{"session_id":"integration-test"}}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"Cargo.toml"},"name":"read_file"}}
+{"id":3,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"id":"agent-switched-session","root":"/tmp/.tmpdmqqLu/agent_root"},"name":"session_init"}}
+{"id":4,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"session_get"}}
+{"id":5,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":"Hello","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":6,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"content":" World","path":"lifecycle.txt"},"name":"write_file"}}
+{"id":7,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{"path":"lifecycle.txt"},"name":"read_file"}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/list
+{"id":3,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"jsonrpc": "2.0", "id": 42, "method": broken}
+{"id":99,"jsonrpc":"2.0","method":"tools/list","params":{}}
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{}}
+{"id":2,"jsonrpc":"2.0","method":"tools/call","params":{"arguments":{},"name":"nonexistent_tool_xyz"}}

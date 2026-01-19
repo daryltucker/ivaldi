@@ -1,0 +1,66 @@
+# Knowledge Base Exclusion Rules
+# These files will be ignored during 'vecdb ingest'.
+
+# --- Build Artifacts ---
+target/
+build/
+dist/
+out/
+**/*.o
+**/*.rlib
+**/*.dylib
+**/*.so
+**/*.dll
+**/*.exe
+**/*.wasm
+
+# --- Version Control ---
+.git/
+.github/
+.gitignore
+.gitattributes
+.gitmodules
+
+# --- IDE & Editors ---
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+.DS_Store
+
+# --- Project Internals ---
+.ivaldi/
+.gemini/
+.env
+.env.*
+
+# --- Logs & Temp ---
+*.log
+*.bak
+*.tmp
+tmp/
+temp/
+
+# --- Sandbox & Verification ---
+tests/middleware_verify/
+verify_middleware.sh  # Script itself is mostly boilerplate, but acceptable to index. 
+                      # But the output artifacts:
+output*.json
+
+# --- Low-Value / High-Noise Files ---
+Cargo.lock    # Dependencies versions change often, low semantic value for code logic
+package-lock.json
+yarn.lock
+
+# --- Assets ---
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.svg
+*.pdf
+*.zip
+*.tar
+*.gz

@@ -1,0 +1,48 @@
+{
+    "mcpServers": {
+        "ivaldi-native": {
+            "command": "cargo",
+            "args": [
+                "run",
+                "--release",
+                "--bin",
+                "ivaldi-server",
+                "--",
+                "--transport",
+                "stdio"
+            ],
+            "env": {
+                "IVALDI_LOG": "info",
+                "IVALDI_ROOT": "/home/daryl/Projects"
+            }
+        },
+        "ivaldi-docker": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "--env",
+                "IVALDI_LOG=info",
+                "--volume",
+                "/home/daryl/Projects:/projects",
+                "daryltucker/ivaldi-mcp:latest",
+                "--transport",
+                "stdio"
+            ]
+        },
+        "ivaldi-gateway": {
+            "command": "docker",
+            "args": [
+                "mcp",
+                "gateway",
+                "run",
+                "--allowed-host",
+                "host.docker.internal"
+            ],
+            "env": {
+                "DOCKER_MCP_CONFIG": "/path/to/docker-mcp.yaml"
+            }
+        }
+    }
+}

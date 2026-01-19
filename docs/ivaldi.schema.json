@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ToolCallContext",
+  "description": "Helper struct to generate the full `_meta` schema. This matches how it appears in the JSON-RPC parameters.",
+  "type": "object",
+  "required": [
+    "_meta"
+  ],
+  "properties": {
+    "_meta": {
+      "$ref": "#/definitions/IdeMetadata"
+    }
+  },
+  "definitions": {
+    "IdeMetadata": {
+      "description": "Metadata provided by the IDE context for every tool call.\n\nThis structure represents the `_meta` field in the JSON-RPC params. It allows the IDE to inject contextual information that is not part of the tool's arguments, such as the current project root, conversation ID, or active file.",
+      "type": "object",
+      "properties": {
+        "active_file": {
+          "description": "The active file being edited (if any).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "conversation_id": {
+          "description": "The unique identifier for the current conversation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cursor_line": {
+          "description": "The line number of the cursor (if any).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "project_root": {
+          "description": "The root directory of the project.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

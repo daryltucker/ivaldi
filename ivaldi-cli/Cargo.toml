@@ -1,0 +1,45 @@
+# ivaldi-cli
+#
+# PURPOSE:
+#   Human-facing command-line interface for ivaldi operations.
+#   Translates CLI arguments into core operations.
+#
+# ARCHITECTURE:
+#   main.rs      → Entry point, clap argument parsing
+#   commands/    → Subcommand handlers (find, read, write, etc.)
+#   output.rs    → Terminal output formatting
+#
+# PHILOSOPHY:
+#   - CLI is a thin layer over ivaldi-core
+#   - All operations delegate to core, never bypass
+#   - Human-optimized output (colors, tables when TTY)
+#   - Machine output available via --json
+#
+# HUMAN vs AGENT:
+#   This crate is for humans. Agents use ivaldi-server (MCP).
+#   But both share the same core logic and response format.
+#
+# See: docs/MAN_HUMAN.md (once implemented)
+
+[package]
+name = "ivaldi-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ivaldi"
+path = "src/main.rs"
+
+[dependencies]
+ivaldi-core.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+vecdb-common.workspace = true
+colored = "3.0.0"

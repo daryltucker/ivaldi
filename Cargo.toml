@@ -1,0 +1,65 @@
+# ivaldi-mcp Workspace
+#
+# PURPOSE:
+#   Modular MCP server for precision file operations.
+#   Three crates: core (logic), cli (interface), server (MCP).
+#
+# ARCHITECTURE:
+#   ivaldi-core   → Types, traits, file operations, AST editing
+#   ivaldi-cli    → Human-facing command-line interface  
+#   ivaldi-server → MCP JSON-RPC server for agents
+#
+# PHILOSOPHY:
+#   - AST-first editing (no line number guessing)
+#   - Third Channel (advisory output for coaching)
+#   - Pre-flight validation (check before write)
+#   - Undo stack (every operation reversible)
+#
+# See: docs/PHILOSOPHY.md, docs/planning/ROADMAP.md
+
+[workspace]
+resolver = "2"
+members = [
+    "ivaldi-core",
+    "ivaldi-cli", 
+    "ivaldi-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Daryl Tucker"]
+license = "MIT"
+repository = "https://github.com/daryltucker/ivaldi-mcp"
+
+[workspace.dependencies]
+# Serialization
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.8"
+schemars = "0.8.21"
+
+# Error handling
+anyhow = "1.0.100"
+thiserror = "2.0.17"
+
+# Async runtime
+tokio = { version = "1.49.0", features = ["full"] }
+
+# CLI
+clap = { version = "4.5.54", features = ["derive"] }
+
+# File system
+walkdir = "2.5"
+glob = "0.3.3"
+ignore = "0.4.25"  # .gitignore/.aiignore parsing
+
+# Logging
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+tracing-journald = "0.3"
+
+# Internal
+ivaldi-core = { path = "ivaldi-core" } # Correct for local member
+vecdb-common = { git = "https://github.com/daryltucker/vecdb", version = "0.0.9" }
+vecq = { git = "https://github.com/daryltucker/vecdb", version = "0.0.9" }
