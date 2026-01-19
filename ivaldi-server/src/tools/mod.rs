@@ -1,5 +1,6 @@
 pub mod middleware;
 pub mod session;
+pub mod cli;
 
 use serde_json::Value;
 use ivaldi_core::navigate::{FsNavigator, Navigator, FindFilesArgs};
@@ -60,6 +61,13 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             }
 
             let response = FsLister::list_dir(args);
+            Ok(serde_json::to_value(response).unwrap())
+        },
+        "run_command" => {
+            let args: cli::RunCommandArgs = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            let response = cli::run_command(args, state).await
+                .map_err(|e| ToolError::Execution(e.to_string()))?;
             Ok(serde_json::to_value(response).unwrap())
         },
         "write_file" => {

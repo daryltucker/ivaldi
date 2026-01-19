@@ -5,6 +5,7 @@ use tempfile::TempDir;
 use serde_json::json;
 
 /// RAII Wrapper for Stdio Server Process
+#[allow(dead_code)]
 pub struct StdioTestServer {
     pub process: Child,
     pub stdin: Option<ChildStdin>, // Option to allow taking it
@@ -13,27 +14,40 @@ pub struct StdioTestServer {
     pub root: std::path::PathBuf,
 }
 
+#[allow(dead_code)]
 impl StdioTestServer {
-    pub fn new() -> Self {
+    pub fn prepare() -> (TempDir, std::path::PathBuf) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
         let root = temp_dir.path().join("project");
         fs::create_dir_all(&root).expect("Failed to create project root");
-
-        // Build server binary
+        // Ensure binary is built (once per test suite run ideally, but here per test)
         let status = Command::new("cargo")
             .args(&["build", "--bin", "ivaldi-server"])
             .status()
             .expect("Failed to build server");
         assert!(status.success(), "Server binary build failed");
+        (temp_dir, root)
+    }
 
+    pub fn spawn(temp_dir: TempDir, root: std::path::PathBuf) -> Self {
+        Self::spawn_with_env(temp_dir, root, std::collections::HashMap::new())
+    }
+
+    pub fn spawn_with_env(temp_dir: TempDir, root: std::path::PathBuf, env: std::collections::HashMap<&str, &str>) -> Self {
         let server_bin = env!("CARGO_BIN_EXE_ivaldi-server");
         
-        // Spawn server
-        let mut child = Command::new(server_bin)
-            .env("IVALDI_CONFIG", temp_dir.path().join("config"))
+        let mut cmd = Command::new(server_bin);
+        cmd.current_dir(&root);
+        cmd.env("IVALDI_CONFIG", temp_dir.path().join("config"));
+        
+        for (k, v) in env {
+            cmd.env(k, v);
+        }
+
+        let mut child = cmd
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit()) // Let stderr flow through for debugging
+            .stderr(Stdio::inherit())
             .spawn()
             .expect("Failed to spawn server");
 
@@ -48,6 +62,11 @@ impl StdioTestServer {
             temp_dir,
             root,
         }
+    }
+
+    pub fn new() -> Self {
+        let (temp_dir, root) = Self::prepare();
+        Self::spawn(temp_dir, root)
     }
 
     /// Send a JSON-RPC request

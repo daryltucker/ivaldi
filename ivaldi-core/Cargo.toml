@@ -56,6 +56,7 @@ libc = "0.2.180"
 toml = "0.9.11"
 git2 = "0.19"
 systemd = "0.10"
+cedar-policy = "4.8.2"
 
 [dev-dependencies]
 tempfile = "3.24.0"

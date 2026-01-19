@@ -188,6 +188,14 @@ impl<T> IvaldiResponse<T> {
         self
     }
     
+    /// Add context to an error response
+    pub fn with_context(mut self, context: serde_json::Value) -> Self {
+        if let Some(ref mut err) = self.error {
+            err.context = Some(context);
+        }
+        self
+    }
+    
     /// Check if the response represents a successful operation
     pub fn is_success(&self) -> bool {
         matches!(self.status, ResponseStatus::Success) && self.result.is_some()

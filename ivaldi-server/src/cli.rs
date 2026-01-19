@@ -13,6 +13,16 @@ pub enum Transport {
     Http,
 }
 
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+pub enum SandboxFeature {
+    /// Filesystem isolation (Read-only root, bind-mounted project)
+    Fs,
+    /// Network isolation (No internet access)
+    Net,
+    /// Enable all isolation features
+    All,
+}
+
 /// ivaldi-server: MCP server for AI Agent file operations
 #[derive(Parser, Debug, Clone)]
 #[command(name = "ivaldi-server")]
@@ -33,6 +43,11 @@ pub struct Args {
     /// Path to a custom configuration file
     #[arg(long, short = 'c', env = "IVALDI_CONFIG")]
     pub config: Option<String>,
+
+    /// Execution sandboxing features (comma-separated)
+    /// Example: --exec-sandboxing=fs,net
+    #[arg(long, value_delimiter = ',', env = "IVALDI_EXEC_SANDBOXING")]
+    pub exec_sandboxing: Option<Vec<SandboxFeature>>,
 
     /// Transport mode: stdio (default) or http
     #[arg(long, value_enum, default_value_t = Transport::Stdio, env = "IVALDI_TRANSPORT")]

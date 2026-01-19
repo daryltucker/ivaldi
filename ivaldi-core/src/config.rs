@@ -1,3 +1,4 @@
+use crate::execution::SafetyConfig;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -26,4 +27,25 @@ pub struct GlobalConfig {
     /// ENV: IVALDI_CONFIG
     #[serde(default)]
     pub config_path: Option<String>,
+
+    /// Execution safety configuration
+    #[serde(default)]
+    pub safety: SafetyConfig,
+}
+
+impl GlobalConfig {
+    /// Load configuration from a specific path, or return defaults
+    pub fn load(path: Option<&std::path::Path>) -> anyhow::Result<Self> {
+        if let Some(p) = path {
+            if p.exists() {
+                let contents = std::fs::read_to_string(p)?;
+                // Try TOML first (standard for rust configs)
+                let config: Self = toml::from_str(&contents)
+                    .or_else(|_| serde_json::from_str(&contents))
+                    .map_err(|e| anyhow::anyhow!("Failed to parse config: {}", e))?;
+                return Ok(config);
+            }
+        }
+        Ok(Self::default())
+    }
 }

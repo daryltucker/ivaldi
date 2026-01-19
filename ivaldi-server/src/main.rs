@@ -69,6 +69,7 @@ mod server_http;
 
 use state::ServerState;
 use ivaldi_server::{Args, Transport};
+use ivaldi_core::config::GlobalConfig; // Added
 use clap::Parser;
 
 #[tokio::main]
@@ -131,10 +132,49 @@ async fn main() -> anyhow::Result<()> {
     }));
     
     info!(version = env!("CARGO_PKG_VERSION"), "ivaldi-server starting");
-    info!("Status: Operational (Phase 4: Session Management)");
     
-    // 1. Initialize State (Config, Sessions, Registry)
-    let state = match ServerState::new() {
+    // 0. Load Configuration
+    // Try CLI path -> ENV -> Default
+    let config_path = cli_args.config.as_deref().map(std::path::PathBuf::from);
+    let mut config = GlobalConfig::load(config_path.as_deref()).unwrap_or_else(|e| {
+        warn!(error = %e, "Failed to load config file. using defaults.");
+        GlobalConfig::default()
+    });
+
+    // 1. Apply CLI Overrides (like exec_sandboxing)
+    if let Some(features) = &cli_args.exec_sandboxing {
+        use ivaldi_server::cli::SandboxFeature;
+        use ivaldi_core::execution::IsolationMode;
+        
+        // If specific features are requested, we enable Bubblewrap mode
+        if features.iter().any(|f| matches!(f, SandboxFeature::Fs | SandboxFeature::Net | SandboxFeature::All)) {
+             config.safety.isolation_mode = IsolationMode::Bubblewrap;
+        }
+
+        for feature in features {
+            match feature {
+                SandboxFeature::Fs => config.safety.ro_bind_root = true,
+                SandboxFeature::Net => config.safety.network_isolation = true,
+                SandboxFeature::All => {
+                    config.safety.isolation_mode = IsolationMode::Bubblewrap;
+                    config.safety.ro_bind_root = true;
+                    config.safety.network_isolation = true;
+                }
+            }
+        }
+    }
+    
+    info!("Status: Operational (Phase 4: Session Management)");
+    if let ivaldi_core::execution::IsolationMode::Bubblewrap = config.safety.isolation_mode {
+        info!(
+            fs_isolation = config.safety.ro_bind_root, 
+            network_isolation = config.safety.network_isolation,
+            "Safety: Sandbox ENABLED"
+        );
+    }
+    
+    // 2. Initialize State with Config
+    let state = match ServerState::new(config) {
         Ok(s) => s,
         Err(e) => {
             error!(error = %e, "CRITICAL: Failed to initialize server state");
