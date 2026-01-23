@@ -87,7 +87,6 @@ async fn handle_mcp_request(
     match result {
         Ok(ivaldi_response) => {
             // Format response based on mode using the formatter system
-            let _registry = response::get_registry();
             let is_error = ivaldi_response.is_error;
             let formatted_result = match *state.server_state.response_mode() {
                 ivaldi_server::cli::ResponseMode::Mcp => {
@@ -170,30 +169,25 @@ async fn handle_mcp_request(
         },
         Err(err) => {
             // Format error response based on mode
-            let _registry = response::get_registry();
             let error_response = match *state.server_state.response_mode() {
                 ivaldi_server::cli::ResponseMode::Openai => {
-                    // OpenAI/OpenCode mode: format error using appropriate formatter
-                    let formatter_name = "openai";
-                    if let Some(formatter) = _registry.get_formatter(formatter_name) {
-                        let error_detail = ivaldi_core::response::ErrorDetail {
-                            code: "tool_error".to_string(),
-                            message: err.clone(),
-                            hint: None,
-                            context: None,
-                        };
-                        let ivaldi_error = ivaldi_core::IvaldiResponse {
-                            content: None,
-                            is_error: true,
-                            error: Some(error_detail),
-                            advisory: vec![],
-                        };
-                        formatter.format_error(ivaldi_error).unwrap_or_else(|_| {
+                    // OpenAI mode: format error using direct OpenAI formatting
+                    let error_detail = ivaldi_core::response::ErrorDetail {
+                        code: "tool_error".to_string(),
+                        message: err.clone(),
+                        hint: None,
+                        context: None,
+                    };
+                    let ivaldi_error = ivaldi_core::IvaldiResponse {
+                        content: None,
+                        is_error: true,
+                        error: Some(error_detail),
+                        advisory: vec![],
+                    };
+                    response::openai::format_error_response(ivaldi_error)
+                        .unwrap_or_else(|_| {
                             json!({ "error": { "message": err, "type": "formatting_error" } })
                         })
-                    } else {
-                        json!({ "error": { "message": err, "type": "formatter_not_found" } })
-                    }
                 },
                 _ => {
                     // MCP mode: standard JSON-RPC error

@@ -16,7 +16,6 @@
 //! - Exact reproduction of working MCP implementation
 //! - Protected from accidental changes during other format development
 
-pub mod detect;
 pub mod format;
 
 // Re-export public API

@@ -337,7 +337,6 @@ async fn main() -> anyhow::Result<()> {
                                  if !id.is_null() && method != "notifications/initialized" {
                                       // Format response based on mode using the formatter system
                                        let is_error = ivaldi_response.is_error;
-                                       let _registry = response::get_registry(); // For OpenAI/OpenCode formatting
                                       let current_mode = state_clone.response_mode();
                                       tracing::trace!("Response mode detected: {:?}", current_mode);
                                       let formatted_result = match *current_mode {
@@ -415,9 +414,7 @@ async fn main() -> anyhow::Result<()> {
                                     // Format error response based on mode
                                     let error_response = match *state_clone.response_mode() {
                                         ivaldi_server::cli::ResponseMode::Openai => {
-                                            // OpenAI/OpenCode mode: format error using appropriate formatter
-                                            let registry = response::get_registry();
-                                            let formatter_name = "openai";
+                                            // OpenAI mode: format error using direct OpenAI formatting
                                             let error_detail = ErrorDetail {
                                                 code: "tool_error".to_string(),
                                                 message: err.clone(),
@@ -430,13 +427,10 @@ async fn main() -> anyhow::Result<()> {
                                                 error: Some(error_detail),
                                                 advisory: vec![],
                                             };
-                                            if let Some(formatter) = registry.get_formatter(formatter_name) {
-                                                formatter.format_error(ivaldi_error).unwrap_or_else(|_| {
+                                            response::openai::format_error_response(ivaldi_error)
+                                                .unwrap_or_else(|_| {
                                                     json!({ "error": { "message": err, "type": "formatting_error" } })
                                                 })
-                                            } else {
-                                                json!({ "error": { "message": err, "type": "formatter_not_found" } })
-                                            }
                                         },
                                         _ => {
                                             // MCP mode: standard JSON-RPC error
