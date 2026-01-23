@@ -1,22 +1,8 @@
-[sessions.default]
-id = "default"
-root = "/tmp/.tmpZE7NFU"
-created_at = "2026-01-18T20:00:17.086998895Z"
-last_active = "2026-01-23T18:42:54.538730737Z"
-
-[sessions.default.conversations]
-
-[sessions.default.metadata]
-label = ".tmpZE7NFU"
-tags = []
-recent_files = []
-aiignore_patterns = []
-
 [sessions.test-session]
 id = "test-session"
 root = "/tmp/.tmpVOihcZ"
 created_at = "2026-01-18T20:00:58.019339052Z"
-last_active = "2026-01-23T18:42:54.385474013Z"
+last_active = "2026-01-23T20:50:23.662157698Z"
 
 [sessions.test-session.conversations]
 
@@ -26,5 +12,19 @@ tags = [
     "test",
     "http",
 ]
+recent_files = []
+aiignore_patterns = []
+
+[sessions.default]
+id = "default"
+root = "/tmp/.tmpZE7NFU"
+created_at = "2026-01-18T20:00:17.086998895Z"
+last_active = "2026-01-23T20:50:23.962678268Z"
+
+[sessions.default.conversations]
+
+[sessions.default.metadata]
+label = ".tmpZE7NFU"
+tags = []
 recent_files = []
 aiignore_patterns = []

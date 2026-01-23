@@ -12,9 +12,16 @@
 pub mod types;
 pub mod write;
 pub mod edit;
+pub mod json;
+pub mod checkbox;
+pub mod append_section;
+pub mod rename_symbol;
 mod backup;
 
-pub use types::{WriteFileArgs, EditFileArgs, EditFilesArgs};
+pub use types::{WriteFileArgs, EditFileArgs, EditFilesArgs, RenameSymbolArgs};
+pub use json::{EditJsonArgs, JsonOperation};
+pub use checkbox::{ToggleCheckboxArgs, CheckboxState, CheckboxResult};
+pub use append_section::{AppendToSectionArgs, InsertPosition, AppendResult};
 
 use std::path::{Path, PathBuf};
 use crate::undo::Journal;
@@ -36,5 +43,25 @@ impl Mutator {
     /// Transactional multi-file edit.
     pub async fn edit_files(root: &Path, args: EditFilesArgs, journal: &Journal) -> IvaldiResponse<Vec<PathBuf>> {
         edit::edit_files(root, args, journal).await
+    }
+
+    /// Edit JSON files with semantic operations.
+    pub fn edit_json(root: &Path, args: json::EditJsonArgs, journal: &Journal) -> IvaldiResponse<PathBuf> {
+        json::edit_json(root, args, journal)
+    }
+
+    /// Toggle checkboxes in Markdown files with semantic operations.
+    pub async fn toggle_checkbox(root: &Path, args: checkbox::ToggleCheckboxArgs, journal: &Journal) -> IvaldiResponse<checkbox::CheckboxResult> {
+        checkbox::toggle_checkbox(root, args, journal).await
+    }
+
+    /// Append content to sections in documents with semantic operations.
+    pub async fn append_to_section(root: &Path, args: append_section::AppendToSectionArgs, journal: &Journal) -> IvaldiResponse<append_section::AppendResult> {
+        append_section::append_to_section(root, args, journal).await
+    }
+
+    /// Rename symbols across files with AST-aware matching.
+    pub async fn rename_symbol(root: &Path, args: RenameSymbolArgs, journal: &Journal) -> IvaldiResponse<rename_symbol::RenameResult> {
+        rename_symbol::rename_symbol(root, args, journal).await
     }
 }

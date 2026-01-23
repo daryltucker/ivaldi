@@ -7,10 +7,54 @@
 //! - **Stability**: Nodes are more stable than line numbers.
 //! - **Precision**: Target exactly what you mean (e.g., "fn main").
 //! - **Polyglot**: Leverages `vecq` to support multiple languages.
+//! - **Crime Scene**: On failure, provide rich context for self-correction.
 
 use anyhow::{Result, anyhow};
 use vecq::{parse_file, convert_to_json, query_json, FileType};
 use serde_json::Value;
+
+
+use crate::heuristics::edit::{
+    NoMatchContext, AmbiguousContext, SelectorType, FileInfo, 
+    AvailableTargets, TargetInfo, MatchInfo, ListItemInfo, PartialMatch,
+    GrepNoMatchContext, GrepAmbiguousContext,
+    levenshtein_distance, find_similar_names, extract_target_name_from_query,
+    generate_disambiguation_hints,
+};
+
+/// Result of an edit operation with rich error context
+pub type RichEditResult = Result<String, RichEditError>;
+
+/// Rich error types for edit operations with Crime Scene context
+#[derive(Debug, thiserror::Error)]
+pub enum RichEditError {
+    #[error("No nodes matched query")]
+    NoMatch(NoMatchContext),
+
+    #[error("Ambiguous edit: multiple nodes matched query")]
+    Ambiguous(AmbiguousContext),
+
+    #[error("Invalid line range: {0}")]
+    InvalidLineRange(String),
+
+    #[error("No line matched grep pattern")]
+    GrepNoMatch(GrepNoMatchContext),
+
+    #[error("Ambiguous edit: multiple lines matched grep pattern")]
+    GrepAmbiguous(GrepAmbiguousContext),
+
+    #[error("Node missing line_start")]
+    MissingLineStart,
+
+    #[error("Node missing line_end")]
+    MissingLineEnd,
+
+    #[error("Vecq error: {0}")]
+    Vecq(#[from] vecq::error::VecqError),
+
+    #[error("Anyhow error: {0}")]
+    Anyhow(#[from] anyhow::Error),
+}
 
 /// Selection method for editing.
 #[derive(Debug, Clone)]
@@ -29,7 +73,7 @@ pub async fn edit_content(
     file_type: FileType,
     selector: EditSelector,
     replacement: &str,
-) -> Result<String> {
+) -> RichEditResult {
     match selector {
         EditSelector::Node(query) => {
             edit_node(content, file_type, &query, replacement).await
@@ -48,7 +92,7 @@ async fn edit_node(
     file_type: FileType,
     query: &str,
     replacement: &str,
-) -> Result<String> {
+) -> RichEditResult {
     // 1. Parse
     let parsed = parse_file(content, file_type).await?;
     let json = convert_to_json(parsed)?;
@@ -57,10 +101,12 @@ async fn edit_node(
     let results = query_json(&json, query)?;
     
     if results.is_empty() {
-        return Err(anyhow!("No nodes matched query: {}", query));
+        let context = build_no_match_context(query, file_type, content, &json).await?;
+        return Err(RichEditError::NoMatch(context));
     }
     if results.len() > 1 {
-        return Err(anyhow!("Ambiguous edit: {} nodes matched query", results.len()));
+        let context = build_ambiguous_context(query, file_type, content, &json, &results).await?;
+        return Err(RichEditError::Ambiguous(context));
     }
     
     let node = &results[0];
@@ -68,12 +114,310 @@ async fn edit_node(
     // 3. Extract Line Range
     let line_start = node.get("line_start")
         .and_then(|v: &Value| v.as_u64())
-        .ok_or_else(|| anyhow!("Node missing line_start"))? as usize;
+        .ok_or(RichEditError::MissingLineStart)? as usize;
     let line_end = node.get("line_end")
         .and_then(|v: &Value| v.as_u64())
-        .ok_or_else(|| anyhow!("Node missing line_end"))? as usize;
+        .ok_or(RichEditError::MissingLineEnd)? as usize;
         
     edit_lines(content, line_start, line_end, replacement)
+}
+
+/// Build context for no match errors
+async fn build_no_match_context(
+    query: &str,
+    file_type: FileType,
+    content: &str,
+    json: &Value,
+) -> Result<NoMatchContext> {
+    let file_info = FileInfo {
+        path: "unknown".to_string(), // Will be set by the calling function
+        file_type: file_type.to_string(),
+        total_lines: content.lines().count(),
+        total_bytes: content.len(),
+    };
+
+    // Extract target name from query for similarity matching
+    let target_name = extract_target_name_from_query(query);
+    
+    // Build available targets based on file type
+    let available_targets = build_available_targets(file_type, json).await?;
+    
+    // Find similar names
+    let similar_names = if let Some(target) = &target_name {
+        let candidates = find_candidates_for_file_type(file_type, json).await?;
+        let candidate_refs: Vec<(&str, &str)> = candidates.iter()
+            .map(|(name, cat)| (name.as_str(), cat.as_str()))
+            .collect();
+        find_similar_names(target, &candidate_refs, 5)
+    } else {
+        Vec::new()
+    };
+
+    Ok(NoMatchContext {
+        query: query.to_string(),
+        selector_type: SelectorType::AstQuery,
+        file_info,
+        available_targets: Some(available_targets),
+        similar_names,
+        partial_matches: Vec::new(),
+    })
+}
+
+/// Build context for ambiguous match errors
+async fn build_ambiguous_context(
+    query: &str,
+    file_type: FileType,
+    content: &str,
+    _json: &Value,
+    results: &[Value],
+) -> Result<AmbiguousContext> {
+    let file_info = FileInfo {
+        path: "unknown".to_string(), // Will be set by the calling function
+        file_type: file_type.to_string(),
+        total_lines: content.lines().count(),
+        total_bytes: content.len(),
+    };
+
+    // Convert results to match info
+    let matches: Vec<MatchInfo> = results.iter()
+        .map(|node| {
+            let name = node.get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            
+            let line_start = node.get("line_start")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(1) as usize;
+                
+            let line_end = node.get("line_end")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(1) as usize;
+                
+            let signature = node.get("signature")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+                
+            let parent = node.get("parent")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+                
+            let content_preview = node.get("content")
+                .and_then(|v| v.as_str())
+                .map(|s| {
+                    let mut s = s.to_string();
+                    if s.len() > 50 {
+                        s.truncate(47);
+                        s.push_str("...");
+                    }
+                    s
+                });
+
+            MatchInfo {
+                name,
+                line_start,
+                line_end,
+                signature,
+                parent,
+                content_preview,
+            }
+        })
+        .collect();
+
+    let disambiguation_hints = generate_disambiguation_hints(&matches, query);
+
+    Ok(AmbiguousContext {
+        query: query.to_string(),
+        selector_type: SelectorType::AstQuery,
+        file_info,
+        matches,
+        disambiguation_hints,
+    })
+}
+
+/// Build available targets for a file type
+async fn build_available_targets(
+    file_type: FileType,
+    json: &Value,
+) -> Result<AvailableTargets> {
+    let mut targets = AvailableTargets::default();
+
+    match file_type {
+        FileType::Rust | FileType::Go | FileType::Python | FileType::C | FileType::Cpp => {
+            // Extract functions
+            if let Some(functions) = json.get("functions").and_then(|v| v.as_array()) {
+                for func in functions {
+                    if let Some(name) = func.get("name").and_then(|v| v.as_str()) {
+                        targets.functions.push(TargetInfo {
+                            name: name.to_string(),
+                            line_start: func.get("line_start")
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(1) as usize,
+                            visibility: func.get("visibility")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            parent: func.get("parent")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                        });
+                    }
+                }
+            }
+
+            // Extract structs/classes
+            if let Some(structs) = json.get("structs").or_else(|| json.get("classes")).and_then(|v| v.as_array()) {
+                for struct_def in structs {
+                    if let Some(name) = struct_def.get("name").and_then(|v| v.as_str()) {
+                        targets.structs.push(TargetInfo {
+                            name: name.to_string(),
+                            line_start: struct_def.get("line_start")
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(1) as usize,
+                            visibility: struct_def.get("visibility")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            parent: None,
+                        });
+                    }
+                }
+            }
+
+            // Extract imports
+            if let Some(imports) = json.get("imports").and_then(|v| v.as_array()) {
+                for imp in imports {
+                    if let Some(name) = imp.get("name").and_then(|v| v.as_str()) {
+                        targets.imports.push(name.to_string());
+                    }
+                }
+            }
+        }
+        
+        FileType::Markdown => {
+            // Extract headers
+            if let Some(headers) = json.get("headers").and_then(|v| v.as_array()) {
+                for header in headers {
+                    if let Some(content) = header.get("content").and_then(|v| v.as_str()) {
+                        targets.headers.push(TargetInfo {
+                            name: content.to_string(),
+                            line_start: header.get("line_start")
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(1) as usize,
+                            visibility: None,
+                            parent: None,
+                        });
+                    }
+                }
+            }
+
+            // Extract list items (including checkboxes)
+            if let Some(list_items) = json.get("list_items").and_then(|v| v.as_array()) {
+                for item in list_items {
+                    if let Some(content) = item.get("content").and_then(|v| v.as_str()) {
+                        targets.list_items.push(ListItemInfo {
+                            content: content.to_string(),
+                            line: item.get("line_start")
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(1) as usize,
+                            task: item.get("task").and_then(|v| v.as_bool()),
+                            checked: item.get("checked").and_then(|v| v.as_bool()),
+                        });
+                    }
+                }
+            }
+        }
+        
+        _ => {
+            // For other file types, provide basic info
+            if let Some(elements) = json.get("elements").and_then(|v| v.as_array()) {
+                for element in elements {
+                    if let Some(name) = element.get("name").and_then(|v| v.as_str()) {
+                        targets.functions.push(TargetInfo {
+                            name: name.to_string(),
+                            line_start: element.get("line_start")
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(1) as usize,
+                            visibility: None,
+                            parent: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(targets)
+}
+
+/// Find candidate names for similarity matching
+async fn find_candidates_for_file_type(
+    file_type: FileType,
+    json: &Value,
+) -> Result<Vec<(String, String)>> {
+    let mut candidates = Vec::new();
+
+    match file_type {
+        FileType::Rust | FileType::Go | FileType::Python | FileType::C | FileType::Cpp => {
+            // Extract function names
+            if let Some(functions) = json.get("functions").and_then(|v| v.as_array()) {
+                for func in functions {
+                    if let Some(name) = func.get("name").and_then(|v| v.as_str()) {
+                        candidates.push((name.to_string(), "function".to_string()));
+                    }
+                }
+            }
+
+            // Extract struct/class names
+            if let Some(structs) = json.get("structs").or_else(|| json.get("classes")).and_then(|v| v.as_array()) {
+                for struct_def in structs {
+                    if let Some(name) = struct_def.get("name").and_then(|v| v.as_str()) {
+                        candidates.push((name.to_string(), "struct".to_string()));
+                    }
+                }
+            }
+
+            // Extract import names
+            if let Some(imports) = json.get("imports").and_then(|v| v.as_array()) {
+                for imp in imports {
+                    if let Some(name) = imp.get("name").and_then(|v| v.as_str()) {
+                        candidates.push((name.to_string(), "import".to_string()));
+                    }
+                }
+            }
+        }
+
+        FileType::Markdown => {
+            // Extract header names
+            if let Some(headers) = json.get("headers").and_then(|v| v.as_array()) {
+                for header in headers {
+                    if let Some(content) = header.get("content").and_then(|v| v.as_str()) {
+                        candidates.push((content.to_string(), "header".to_string()));
+                    }
+                }
+            }
+
+            // Extract list item content
+            if let Some(list_items) = json.get("list_items").and_then(|v| v.as_array()) {
+                for item in list_items {
+                    if let Some(content) = item.get("content").and_then(|v| v.as_str()) {
+                        candidates.push((content.to_string(), "list_item".to_string()));
+                    }
+                }
+            }
+        }
+
+        _ => {
+            // Generic element names
+            if let Some(elements) = json.get("elements").and_then(|v| v.as_array()) {
+                for element in elements {
+                    if let Some(name) = element.get("name").and_then(|v| v.as_str()) {
+                        candidates.push((name.to_string(), "element".to_string()));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(candidates)
 }
 
 fn edit_lines(
@@ -81,28 +425,30 @@ fn edit_lines(
     start: usize, // 1-indexed
     end: usize,   // 1-indexed
     replacement: &str,
-) -> Result<String> {
+) -> RichEditResult {
     let has_trailing_newline = content.ends_with('\n');
     let lines: Vec<&str> = content.lines().collect();
     if start < 1 || start > lines.len() || end < start || end > lines.len() {
-        return Err(anyhow!("Invalid line range: {}-{} (total lines: {})", start, end, lines.len()));
+        return Err(RichEditError::InvalidLineRange(
+            format!("Invalid line range: {}-{} (total lines: {})", start, end, lines.len())
+        ));
     }
-    
+
     let mut new_content = Vec::new();
-    
+
     // Keep lines before
     for item in lines.iter().take(start - 1) {
         new_content.push(item.to_string());
     }
-    
+
     // Inject replacement (trim trailing newline to avoid doubles when joining)
     new_content.push(replacement.trim_end_matches('\n').to_string());
-    
+
     // Keep lines after
     for item in lines.iter().skip(end) {
         new_content.push(item.to_string());
     }
-    
+
     let mut result = new_content.join("\n");
     if has_trailing_newline {
         result.push('\n');
@@ -114,30 +460,96 @@ fn edit_grep(
     content: &str,
     pattern: &str,
     replacement: &str,
-) -> Result<String> {
-    let regex = regex::Regex::new(pattern)?;
-    let mut match_count = 0;
-    let mut line_start = 0;
-    let mut line_end = 0;
-    
+) -> RichEditResult {
+    let regex = regex::Regex::new(pattern)
+        .map_err(|e| anyhow!("Invalid regex pattern: {}", e))?;
+
+    let mut matches = Vec::new();
+    let mut partial_matches = Vec::new();
+
     for (i, line) in content.lines().enumerate() {
         if regex.is_match(line) {
-            match_count += 1;
-            if match_count == 1 {
-                line_start = i + 1;
-                line_end = i + 1;
+            matches.push((i + 1, line.to_string()));
+        } else if line.to_lowercase().contains(&pattern.to_lowercase()) {
+            // Partial match (case-insensitive substring)
+            partial_matches.push(PartialMatch {
+                line: i + 1,
+                content: line.to_string(),
+                match_type: "case_insensitive".to_string(),
+            });
+        }
+    }
+
+    if matches.is_empty() {
+        let file_info = FileInfo {
+            path: "unknown".to_string(), // Will be set by the calling function
+            file_type: "text".to_string(),
+            total_lines: content.lines().count(),
+            total_bytes: content.len(),
+        };
+
+        let context = GrepNoMatchContext {
+            pattern: pattern.to_string(),
+            file_info,
+            partial_matches,
+            similar_lines: find_similar_lines(pattern, content),
+        };
+
+        return Err(RichEditError::GrepNoMatch(context));
+    }
+
+    if matches.len() > 1 {
+        let file_info = FileInfo {
+            path: "unknown".to_string(), // Will be set by the calling function
+            file_type: "text".to_string(),
+            total_lines: content.lines().count(),
+            total_bytes: content.len(),
+        };
+
+        let match_infos: Vec<MatchInfo> = matches.into_iter()
+            .map(|(line, content)| MatchInfo {
+                name: content.clone(),
+                line_start: line,
+                line_end: line,
+                signature: None,
+                parent: None,
+                content_preview: Some(content),
+            })
+            .collect();
+
+        let context = GrepAmbiguousContext {
+            pattern: pattern.to_string(),
+            file_info,
+            matches: match_infos,
+        };
+
+        return Err(RichEditError::GrepAmbiguous(context));
+    }
+
+    // Single match
+    let (line_start, _) = matches[0];
+    let line_end = line_start;
+
+    edit_lines(content, line_start, line_end, replacement)
+}
+
+/// Find lines that might be similar to the pattern
+fn find_similar_lines(pattern: &str, content: &str) -> Vec<String> {
+    let mut similar = Vec::new();
+    let pattern_lower = pattern.to_lowercase();
+
+    for line in content.lines() {
+        let line_lower = line.to_lowercase();
+        if line_lower.contains(&pattern_lower) ||
+           levenshtein_distance(&pattern_lower, &line_lower) <= 3 {
+            similar.push(line.to_string());
+            if similar.len() >= 3 {
+                break;
             }
         }
     }
-    
-    if match_count == 0 {
-        return Err(anyhow!("No line matched grep pattern: {}", pattern));
-    }
-    if match_count > 1 {
-        return Err(anyhow!("Ambiguous edit: {} lines matched grep pattern", match_count));
-    }
-    
-    edit_lines(content, line_start, line_end, replacement)
+
+    similar
 }
 
 #[cfg(test)]

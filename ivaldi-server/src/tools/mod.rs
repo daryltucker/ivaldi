@@ -9,7 +9,7 @@ use ivaldi_core::observe::{
     SearchCodeArgs, GitReadArgs, ReadSyslogsArgs
 };
 use ivaldi_core::list::{FsLister, Lister, ListDirArgs};
-use ivaldi_core::mutate::{Mutator, WriteFileArgs, EditFileArgs};
+use ivaldi_core::mutate::{Mutator, WriteFileArgs, EditFileArgs, EditJsonArgs, ToggleCheckboxArgs, AppendToSectionArgs};
 use ivaldi_core::undo::{Journal, Undoer, UndoArgs};
 use ivaldi_core::session::types::{SessionInitArgs, SessionListArgs, SessionGetArgs, SessionUpdateArgs};
 use ivaldi_core::lifecycle::project_root::find_project_root;
@@ -125,6 +125,45 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             
             let response = Mutator::edit_files(&root, args, &journal).await;
             
+            Ok(serde_json::to_value(response).unwrap())
+        },
+        "edit_json" => {
+            let args: EditJsonArgs = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+
+            // Lifecycle extraction
+            let start = args.path.parent().unwrap_or(&args.path);
+            let root = find_project_root(start);
+            let journal_path = root.join(".ivaldi/journal.jsonl");
+            let journal = Journal::open(&journal_path).map_err(|e| ToolError::Execution(format!("Journal error: {}", e)))?;
+
+            let response = Mutator::edit_json(&root, args, &journal);
+            Ok(serde_json::to_value(response).unwrap())
+        },
+        "toggle_checkbox" => {
+            let args: ToggleCheckboxArgs = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+
+            // Lifecycle extraction
+            let start = args.path.parent().unwrap_or(&args.path);
+            let root = find_project_root(start);
+            let journal_path = root.join(".ivaldi/journal.jsonl");
+            let journal = Journal::open(&journal_path).map_err(|e| ToolError::Execution(format!("Journal error: {}", e)))?;
+
+            let response = Mutator::toggle_checkbox(&root, args, &journal).await;
+            Ok(serde_json::to_value(response).unwrap())
+        },
+        "append_to_section" => {
+            let args: AppendToSectionArgs = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+
+            // Lifecycle extraction
+            let start = args.path.parent().unwrap_or(&args.path);
+            let root = find_project_root(start);
+            let journal_path = root.join(".ivaldi/journal.jsonl");
+            let journal = Journal::open(&journal_path).map_err(|e| ToolError::Execution(format!("Journal error: {}", e)))?;
+
+            let response = Mutator::append_to_section(&root, args, &journal).await;
             Ok(serde_json::to_value(response).unwrap())
         },
         "undo" => {

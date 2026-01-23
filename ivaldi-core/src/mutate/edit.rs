@@ -31,11 +31,58 @@ pub async fn edit_file(
             return IvaldiResponse::from_error(IvaldiError::InvalidArgument("Edit requires query, grep, or from_line/to_line".into()));
     };
 
-    // 2. Perform Edit
+    // 2. Perform Edit with Crime Scene error handling
     let file_type = FileType::from_path(&args.path);
     let new_content = match crate::ast_edit::edit_content(&content, file_type, selector, &args.replacement).await {
         Ok(c) => c,
-        Err(e) => return IvaldiResponse::from_error(IvaldiError::Internal(format!("Edit failed: {}", e))),
+        Err(rich_error) => {
+            // Convert RichEditError to IvaldiResponse with Crime Scene advisory
+            return match rich_error {
+                crate::ast_edit::RichEditError::NoMatch(mut context) => {
+                    // Set the actual file path
+                    context.file_info.path = args.path.to_string_lossy().to_string();
+                    let mut response = IvaldiResponse::from_error(IvaldiError::Query("No nodes matched query".into()));
+                    response.advisory.push(context.to_advisory());
+                    response
+                },
+                crate::ast_edit::RichEditError::Ambiguous(mut context) => {
+                    // Set the actual file path
+                    context.file_info.path = args.path.to_string_lossy().to_string();
+                    let mut response = IvaldiResponse::from_error(IvaldiError::Query("Ambiguous edit: multiple nodes matched".into()));
+                    response.advisory.push(context.to_advisory());
+                    response
+                },
+                crate::ast_edit::RichEditError::InvalidLineRange(msg) => {
+                    IvaldiResponse::from_error(IvaldiError::InvalidArgument(msg))
+                },
+                crate::ast_edit::RichEditError::GrepNoMatch(mut context) => {
+                    // Set the actual file path
+                    context.file_info.path = args.path.to_string_lossy().to_string();
+                    let mut response = IvaldiResponse::from_error(IvaldiError::Query("No line matched grep pattern".into()));
+                    response.advisory.push(context.to_advisory());
+                    response
+                },
+                crate::ast_edit::RichEditError::GrepAmbiguous(mut context) => {
+                    // Set the actual file path
+                    context.file_info.path = args.path.to_string_lossy().to_string();
+                    let mut response = IvaldiResponse::from_error(IvaldiError::Query("Ambiguous edit: multiple lines matched grep pattern".into()));
+                    response.advisory.push(context.to_advisory());
+                    response
+                },
+                crate::ast_edit::RichEditError::MissingLineStart => {
+                    IvaldiResponse::from_error(IvaldiError::Internal("AST node missing line_start".into()))
+                },
+                crate::ast_edit::RichEditError::MissingLineEnd => {
+                    IvaldiResponse::from_error(IvaldiError::Internal("AST node missing line_end".into()))
+                },
+                crate::ast_edit::RichEditError::Vecq(e) => {
+                    IvaldiResponse::from_error(IvaldiError::Query(format!("Vecq error: {}", e)))
+                },
+                crate::ast_edit::RichEditError::Anyhow(e) => {
+                    IvaldiResponse::from_error(IvaldiError::Internal(format!("Internal error: {}", e)))
+                },
+            };
+        }
     };
 
     // 3. Write via write_file
