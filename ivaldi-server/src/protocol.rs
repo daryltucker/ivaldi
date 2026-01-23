@@ -131,5 +131,29 @@ pub async fn handle_tools_call(
     let duration = start_time.elapsed();
     info!(tool = name, duration_ms = duration.as_millis(), "Tool completed");
     
-    Ok(serde_json::to_value(response).unwrap())
+    // TRANSFORM TO STRICT MCP:
+    // Every Tool Result MUST have a 'content' array of items.
+    // If the tool returned a raw value, we wrap it into a Text content item.
+    let mut final_value = serde_json::to_value(response).unwrap();
+    
+    if let Some(content_val) = final_value.get_mut("content") {
+        if !content_val.is_null() {
+            // Take the value and wrap it in standard MCP Text Content
+            let raw_data = content_val.take();
+            let stringified = if raw_data.is_string() {
+                raw_data.as_str().unwrap().to_string()
+            } else {
+                serde_json::to_string_pretty(&raw_data).unwrap()
+            };
+            
+            *content_val = json!([
+                { "type": "text", "text": stringified }
+            ]);
+        }
+    } else if !final_value.get("isError").and_then(|v| v.as_bool()).unwrap_or(false) {
+        // Successful but no content? MCP spec prefers an empty array over null
+        final_value["content"] = json!([]);
+    }
+    
+    Ok(final_value)
 }

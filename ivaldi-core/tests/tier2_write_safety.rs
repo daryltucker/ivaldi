@@ -1,4 +1,3 @@
-use ivaldi_core::ResponseStatus;
 use ivaldi_core::undo::{Journal, types::ActionType};
 use ivaldi_core::mutate::{Mutator, WriteFileArgs};
 use tempfile::TempDir;
@@ -20,7 +19,7 @@ fn test_write_new_file() {
     };
     let result = Mutator::write_file(root, args, &journal);
     
-    assert_eq!(result.status, ResponseStatus::Success);
+    assert!(!result.is_error);
     assert_eq!(fs::read_to_string(&target).unwrap(), "Hello");
     
     let entries = journal.read_all().unwrap();
@@ -47,7 +46,7 @@ fn test_smart_append_behavior() {
     };
     let result = Mutator::write_file(root, args, &journal);
     
-    assert_eq!(result.status, ResponseStatus::Success);
+    assert!(!result.is_error);
     
     // Check advisory
     assert!(!result.advisory.is_empty());
@@ -82,7 +81,7 @@ fn test_overwrite_backup() {
     };
     let result = Mutator::write_file(root, args, &journal);
     
-    assert_eq!(result.status, ResponseStatus::Success);
+    assert!(!result.is_error);
     assert_eq!(fs::read_to_string(&target).unwrap(), "Modified");
     
     let entries = journal.read_all().unwrap();

@@ -43,8 +43,10 @@ fn test_mcp_session_init_and_path_resolution() {
     let resp = server.recv();
     
     // If it finds it, great. If not, we assert the structure at least.
-    if let Some(content) = resp["result"]["result"]["content"].as_str() {
-         assert!(content.contains("[package]"));
+    if let Some(content_items) = resp["result"]["content"].as_array() {
+        if let Some(text) = content_items[0]["text"].as_str() {
+             assert!(text.contains("[package]"));
+        }
     }
     
     // 3. Switch Session
@@ -62,7 +64,7 @@ fn test_mcp_session_init_and_path_resolution() {
     });
     server.send(session_req);
     let resp = server.recv();
-    assert_eq!(resp["result"]["result"]["id"], "agent-switched-session");
+    assert!(resp["result"]["content"][0]["text"].as_str().unwrap().contains("agent-switched-session"));
 
     // 4. Verify Context Switch
     let get_req = json!({
@@ -76,7 +78,7 @@ fn test_mcp_session_init_and_path_resolution() {
     });
     server.send(get_req);
     let resp = server.recv();
-    assert_eq!(resp["result"]["result"]["id"], "agent-switched-session");
+    assert!(resp["result"]["content"][0]["text"].as_str().unwrap().contains("agent-switched-session"));
 
     // 5. Verify Smart Append
     // Write Init
@@ -127,8 +129,8 @@ fn test_mcp_session_init_and_path_resolution() {
     });
     server.send(read_check);
     let resp = server.recv();
-    let content = resp["result"]["result"]["content"].as_str().expect("Content missing");
-    assert_eq!(content, "Hello World");
+    let content = resp["result"]["content"][0]["text"].as_str().expect("Content missing");
+    assert!(content.contains("Hello World"));
 }
 
 #[test]
@@ -160,8 +162,7 @@ fn test_mcp_find_files() {
     let resp = server.recv();
     assert!(resp.get("error").is_none());
     
-    // Fix: Result is a list, not a content string
-    let result_str = resp["result"]["result"].to_string();
+    let result_str = resp["result"]["content"][0]["text"].as_str().unwrap();
     assert!(result_str.contains("src/main.rs"));
     assert!(!result_str.contains("README.md"));
 }
@@ -192,8 +193,7 @@ fn test_mcp_list_dir() {
     let resp = server.recv();
     assert!(resp.get("error").is_none());
     
-    // Fix: Result is a list
-    let result_str = resp["result"]["result"].to_string();
+    let result_str = resp["result"]["content"][0]["text"].as_str().unwrap();
     assert!(result_str.contains("file1.txt"));
     assert!(result_str.contains("subdir"));
 }

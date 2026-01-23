@@ -187,7 +187,7 @@ mod tests {
         let args: FindFilesArgs = serde_json::from_value(json).unwrap();
         
         let resp = FsNavigator::find_files(args);
-        let results = resp.result.unwrap();
+        let results = resp.content.unwrap();
         assert!(!results.is_empty(), "Should find the file");
         assert_eq!(results[0].path.file_name().unwrap(), "test_find.txt");
     }
@@ -204,6 +204,6 @@ mod tests {
         let args: FindFilesArgs = serde_json::from_value(json).unwrap();
 
         let resp = FsNavigator::find_files(args);
-        assert!(!resp.result.unwrap().is_empty());
+        assert!(!resp.content.unwrap().is_empty());
     }
 }

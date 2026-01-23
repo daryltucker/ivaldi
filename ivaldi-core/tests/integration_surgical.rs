@@ -21,7 +21,7 @@ async fn test_full_scalpel_workflow() {
         append: false,
     };
     let resp = Mutator::write_file(dir.path(), args, &journal);
-    assert!(resp.result.is_some());
+    assert!(resp.content.is_some());
     
     // 2. Surgical Edit (AST)
     let replacement = "fn main() {\n    println!(\"surgical\");\n}";
@@ -38,7 +38,7 @@ async fn test_full_scalpel_workflow() {
 
     let edit_resp = Mutator::edit_file(dir.path(), edit_args, &journal).await;
     
-    assert!(edit_resp.result.is_some());
+    assert!(edit_resp.content.is_some());
     let final_content = fs::read_to_string(&file_path).unwrap();
     
     assert!(final_content.contains("surgical"));

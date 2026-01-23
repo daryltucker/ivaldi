@@ -50,7 +50,7 @@ async fn test_git_blame() {
     let response = git_read(args, None).await;
     assert!(response.error.is_none());
     
-    let result = response.result.unwrap();
+    let result = response.content.unwrap();
     let blame = result.get("blame").unwrap().as_array().unwrap();
     assert_eq!(blame.len(), 3);
     
@@ -77,7 +77,7 @@ async fn test_git_log() {
     let response = git_read(args, None).await;
     assert!(response.error.is_none());
     
-    let result = response.result.unwrap();
+    let result = response.content.unwrap();
     let commits = result.get("commits").unwrap().as_array().unwrap();
     assert_eq!(commits.len(), 2);
     assert_eq!(commits[0].get("message").unwrap(), "Second commit");
@@ -102,7 +102,7 @@ async fn test_git_diff() {
     let response = git_read(args, None).await;
     assert!(response.error.is_none());
     
-    let result = response.result.unwrap();
+    let result = response.content.unwrap();
     let files = result.get("files").unwrap().as_array().unwrap();
     assert_eq!(files.len(), 1);
     assert!(files[0].get("diff").unwrap().as_str().unwrap().contains("+line 3"));
@@ -125,7 +125,7 @@ async fn test_git_search() {
     let response = git_read(args, None).await;
     assert!(response.error.is_none());
     
-    let result = response.result.unwrap();
+    let result = response.content.unwrap();
     let commits = result.get("commits").unwrap().as_array().unwrap();
     assert_eq!(commits.len(), 1);
     assert_eq!(commits[0].get("message").unwrap(), "Second commit");

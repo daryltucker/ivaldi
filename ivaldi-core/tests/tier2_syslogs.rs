@@ -18,7 +18,7 @@ async fn test_read_syslogs_smoke() {
     if let Some(err) = response.error {
         assert!(err.code == "syslog_error" || err.code == "io_error" || err.code == "permission_denied");
     } else {
-        let result = response.result.unwrap();
+        let result = response.content.unwrap();
         let logs = result.get("logs").unwrap().as_array().unwrap();
         assert!(logs.len() <= 5);
         if !logs.is_empty() {

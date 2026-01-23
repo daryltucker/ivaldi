@@ -1,7 +1,6 @@
 use ivaldi_core::navigate::{FsNavigator, Navigator, FindFilesArgs};
 use ivaldi_core::observe::{FsObserver, Observer, ReadFileArgs};
 use ivaldi_core::list::{FsLister, Lister, ListDirArgs};
-use ivaldi_core::ResponseStatus;
 use std::fs::File;
 use std::io::Write;
 use tempfile::TempDir;
@@ -38,8 +37,8 @@ fn test_find_files_respects_depth_and_pattern() {
     };
     
     let result = FsNavigator::find_files(args);
-    assert_eq!(result.status, ResponseStatus::Success);
-    let files = result.result.unwrap();
+    assert!(!result.is_error);
+    let files = result.content.unwrap();
     // walkdir returns root? No, we filtered it in impl.
     // depth 1 from root usually includes direct children.
     // file1.txt, subdir.
@@ -59,7 +58,7 @@ fn test_find_files_respects_depth_and_pattern() {
         respect_aiignore: true,
     };
     let result = FsNavigator::find_files(args_glob);
-    let files = result.result.unwrap();
+    let files = result.content.unwrap();
     assert_eq!(files.len(), 1);
     assert!(files[0].path.ends_with("file2.rs"));
 }
@@ -82,7 +81,7 @@ fn test_read_file_safety() {
         ..Default::default()
     };
     let result = FsObserver::read_file(args);
-    assert_eq!(result.status, ResponseStatus::Error);
+    assert!(result.is_error);
     assert_eq!(result.error.unwrap().code, "binary_detected");
 
     // 2. Large File Truncation
@@ -100,8 +99,8 @@ fn test_read_file_safety() {
         ..Default::default()
     };
     let result = FsObserver::read_file(args);
-    assert_eq!(result.status, ResponseStatus::Success);
-    let content = result.result.unwrap();
+    assert!(!result.is_error);
+    let content = result.content.unwrap();
     assert!(content.info.truncated);
     assert!(content.content.contains("... [ TRUNCATED ] ..."));
     assert!(content.content.contains("Line 0"));
@@ -126,8 +125,8 @@ fn test_list_dir_metadata() {
         respect_aiignore: true,
     };
     let result = FsLister::list_dir(args);
-    assert_eq!(result.status, ResponseStatus::Success);
-    let entries = result.result.unwrap();
+    assert!(!result.is_error);
+    let entries = result.content.unwrap();
     
     assert_eq!(entries.len(), 2);
     // Sort default true

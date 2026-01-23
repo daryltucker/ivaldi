@@ -53,7 +53,7 @@ fn test_simulation_scaffolding_workflow() {
         enable_gitignore: false,
         respect_aiignore: true,
     };
-    let entries = FsLister::list_dir(list_args).result.unwrap();
+    let entries = FsLister::list_dir(list_args).content.unwrap();
     
     // Expect: Cargo.toml, src
     assert!(entries.iter().any(|e| e.name == "Cargo.toml"));

@@ -25,13 +25,34 @@ impl ServerState {
         let session_manager = SessionManager::new()?;
         // config is now passed in
 
-        // Initialize Policy Engine (defaulting to .ivaldi/policies)
-        // In the future, this path should be configurable via Args or ENV
-        let policy_path = Path::new(".ivaldi/policies");
-        let policy_engine = PolicyEngine::new(policy_path).unwrap_or_else(|e| {
-            tracing::warn!("Failed to load policies from {:?}: {}. Defaulting to empty (DENY ALL).", policy_path, e);
-            // Create a safe default engine (empty = deny all)
-            PolicyEngine::new(Path::new("/non/existent")).unwrap() 
+        // Initialize Policy Engine using search hierarchy:
+        // 1. Local (./.ivaldi/policies)
+        // 2. Global (~/.config/ivaldi/policies)
+        // 3. Fallback: SILENT ALLOW ALL
+        let local_path = Path::new(".ivaldi/policies");
+        let policy_path = if local_path.exists() {
+            Some(local_path.to_path_buf())
+        } else {
+            // Check global config directory
+            let xdg_config = std::env::var("XDG_CONFIG_HOME").ok()
+                .map(std::path::PathBuf::from)
+                .or_else(|| {
+                    std::env::var("HOME").ok().map(|h| std::path::PathBuf::from(h).join(".config"))
+                });
+            
+            xdg_config.map(|p| p.join("ivaldi").join("policies"))
+                .filter(|p| p.exists())
+        };
+
+        if let Some(ref path) = policy_path {
+            tracing::info!(path = ?path, "Policy: loading from file");
+        } else {
+            tracing::info!("Policy: no file found, using silent default (ALLOW ALL)");
+        }
+
+        let policy_engine = PolicyEngine::new(policy_path.as_deref()).unwrap_or_else(|e| {
+            tracing::error!("Failed to initialize policy engine: {}. Defaulting to silent ALLOW ALL.", e);
+            PolicyEngine::permissive()
         });
 
         Ok(Self {

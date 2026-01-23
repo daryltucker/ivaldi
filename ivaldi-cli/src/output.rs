@@ -1,4 +1,4 @@
-use ivaldi_core::{IvaldiResponse, ResponseStatus, AdvisoryLevel, AdvisorySource};
+use ivaldi_core::{IvaldiResponse, AdvisoryLevel, AdvisorySource};
 use serde::Serialize;
 use colored::*;
 
@@ -14,32 +14,18 @@ pub fn print_response<T: Serialize>(response: &IvaldiResponse<T>, json_mode: boo
 }
 
 fn print_human<T: Serialize>(response: &IvaldiResponse<T>) {
-    // 1. Result
-    match response.status {
-        ResponseStatus::Success => {
-             // For generic T, we can't easily pretty-print without knowing type.
-             // But valid T in our case are Vec<FileMatch>, FileContent, Vec<DirEntry>.
-             // We'd ideally need a specific printer or a trait `HumanDisplay`.
-             // For now, let's dump the result as JSON-ish or implement specific handlers in main.rs calling this helper?
-             // Actually, output.rs should probably be generic or take a formatter closure?
-             // Simpler: print_response just handles the envelope (Advisories/Errors).
-             // The result printing depends on the command.
-             // Let's refactor: main.rs prints result, output.rs helper prints advisories/errors.
-             // No, let's make this print the envelope.
-        },
-        ResponseStatus::Warning => {
-            println!("{}", "⚠ Operation completed with warnings.".yellow());
-        },
-        ResponseStatus::Error => {
-            if let Some(ref err) = response.error {
-                 println!("{} {}: {}", "✖".red(), err.code.bold(), err.message);
-                 if let Some(ref hint) = err.hint {
-                     println!("  {} {}", "💡".blue(), hint);
-                 }
-            } else {
-                 println!("{}", "✖ Unknown error occurred.".red());
-            }
+    // 1. Error Reporting
+    if response.is_error {
+        if let Some(ref err) = response.error {
+             println!("{} {}: {}", "✖".red(), err.code.bold(), err.message);
+             if let Some(ref hint) = err.hint {
+                 println!("  {} {}", "💡".blue(), hint);
+             }
+        } else {
+             println!("{}", "✖ Unknown error occurred.".red());
         }
+    } else if response.advisory.iter().any(|a| matches!(a.level, AdvisoryLevel::Warn)) {
+        println!("{}", "⚠ Operation completed with warnings.".yellow());
     }
 
     // 2. Advisories (The Third Channel)
@@ -75,7 +61,7 @@ pub fn print_find_results(response: &IvaldiResponse<Vec<ivaldi_core::navigate::F
         return; 
     }
     
-    if let Some(matches) = &response.result {
+    if let Some(matches) = &response.content {
         if matches.is_empty() {
              println!("No matches found.");
         } else {
@@ -96,7 +82,7 @@ pub fn print_read_result(response: &IvaldiResponse<ivaldi_core::observe::FileCon
         return; 
     }
     
-    if let Some(content) = &response.result {
+    if let Some(content) = &response.content {
         println!("{}", "--- Content ---".dimmed());
         println!("{}", content.content);
         println!("{}", "---".dimmed());
@@ -115,7 +101,7 @@ pub fn print_list_results(response: &IvaldiResponse<Vec<ivaldi_core::list::DirEn
         return; 
     }
 
-    if let Some(entries) = &response.result {
+    if let Some(entries) = &response.content {
         println!("{:<4} {:<10} Name", "Type", "Size");
         println!("{}", "-".repeat(40).dimmed());
         for e in entries {
@@ -135,7 +121,7 @@ pub fn print_write_result(response: &IvaldiResponse<std::path::PathBuf>, json: b
         return; 
     }
 
-    if let Some(path) = &response.result {
+    if let Some(path) = &response.content {
          // If we had a warning about sidecar, it will be in advisories (printed by print_human)
          println!("{} Wrote to: {}", "✓".green(), path.display());
     }

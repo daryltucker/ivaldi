@@ -101,7 +101,12 @@ async fn main() -> anyhow::Result<()> {
     };
     
     let journald_layer = tracing_journald::layer().ok();
-    let fmt_layer = tracing_subscriber::fmt::layer().with_writer(std::io::stderr);
+    
+    // Disable ANSI colors if stderr is not a terminal (e.g. piped to Mahal logs)
+    use std::io::IsTerminal;
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(std::io::stderr().is_terminal())
+        .with_writer(std::io::stderr);
     
     tracing_subscriber::registry()
         .with(journald_layer)

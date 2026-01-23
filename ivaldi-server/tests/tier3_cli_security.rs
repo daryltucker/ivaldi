@@ -9,11 +9,11 @@ use common::stdio::StdioTestServer;
 fn assert_success(resp: &serde_json::Value, expected_stdout: Option<&str>) {
     println!("Checking success for: {:?}", resp);
     let result = &resp["result"];
-    assert_eq!(result["status"], "success", "Response should be success");
+    assert_eq!(result["isError"], false, "Response should be success");
     
     if let Some(expected) = expected_stdout {
-        let stdout = result["result"]["stdout"].as_str().unwrap();
-        assert!(stdout.contains(expected), "Stdout '{}' should contain '{}'", stdout, expected);
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains(expected), "Stdout '{}' should contain '{}'", text, expected);
     }
 }
 
@@ -24,15 +24,15 @@ fn test_cli_execution_policy_enforcement() {
     // 1. Prepare env
     let (temp_dir, root) = StdioTestServer::prepare();
     
-    // 2. Setup Policy
+    // 2. Setup Policy (Explicitly forbid ls, others allowed by default)
     let policy_dir = root.join(".ivaldi").join("policies");
     fs::create_dir_all(&policy_dir).expect("Failed to create policies dir");
     
     let policy_content = r#"
-        permit(
-            principal == Entity::"Agent", 
+        forbid(
+            principal, 
             action == Action::"exec", 
-            resource == Command::"echo"
+            resource == Command::"ls"
         );
     "#;
     
@@ -42,7 +42,7 @@ fn test_cli_execution_policy_enforcement() {
     let mut server = StdioTestServer::spawn(temp_dir, root);
     server.initialize();
 
-    // 4. Test Allowed Command (echo)
+    // 4. Test Allowed Command (echo) - Should be allowed by global permit
     let echo_req = json!({
         "jsonrpc": "2.0",
         "id": 2,
@@ -59,7 +59,7 @@ fn test_cli_execution_policy_enforcement() {
     let echo_resp = server.recv();
     assert_success(&echo_resp, Some("Hello Policy"));
 
-    // 5. Test Denied Command (ls)
+    // 5. Test Denied Command (ls) - Denied by explicit forbid
     let ls_req = json!({
         "jsonrpc": "2.0",
         "id": 3,
@@ -76,20 +76,54 @@ fn test_cli_execution_policy_enforcement() {
     let ls_resp = server.recv();
     
     let ls_ivaldi_resp = &ls_resp["result"];
-    assert_eq!(ls_ivaldi_resp["status"], "error");
-    assert_eq!(ls_ivaldi_resp["error"]["code"], "-32003");
+    assert_eq!(ls_ivaldi_resp["isError"], true);
     assert!(ls_ivaldi_resp["error"]["message"].as_str().unwrap().contains("Permission denied"));
 }
 
 #[test]
-fn test_default_deny_enforcement() {
+fn test_default_allow_behavior() {
     // 1. Prepare env (No policies)
     let (temp_dir, root) = StdioTestServer::prepare();
     
     let mut server = StdioTestServer::spawn(temp_dir, root);
     server.initialize();
 
-    // 2. Try echo (should fail now)
+    // 2. Try echo (should SUCCEED now with ALLOW ALL default)
+    let req = json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": "run_command",
+            "arguments": {
+                "command": "echo",
+                "args": ["Hello Default Allow"]
+            }
+        }
+    });
+    server.send(req);
+    let resp = server.recv();
+    
+    assert_success(&resp, Some("Hello Default Allow"));
+}
+
+#[test]
+fn test_explicit_forbid_all_enforcement() {
+    // 1. Prepare env
+    let (temp_dir, root) = StdioTestServer::prepare();
+    
+    // 2. Setup "DENY ALL" Policy via explicit forbid
+    let policy_dir = root.join(".ivaldi").join("policies");
+    fs::create_dir_all(&policy_dir).expect("Failed to create policies dir");
+    
+    let policy_content = r#"forbid(principal, action, resource);"#;
+    fs::write(policy_dir.join("deny_all.cedar"), policy_content).expect("Failed to write policy");
+
+    // 3. Spawn Server
+    let mut server = StdioTestServer::spawn(temp_dir, root);
+    server.initialize();
+
+    // 4. Try echo (should FAIL due to explicit forbid)
     let req = json!({
         "jsonrpc": "2.0",
         "id": 2,
@@ -106,8 +140,7 @@ fn test_default_deny_enforcement() {
     let resp = server.recv();
     
     let ivaldi_resp = &resp["result"];
-    assert_eq!(ivaldi_resp["status"], "error");
-    assert_eq!(ivaldi_resp["error"]["code"], "-32003");
+    assert_eq!(ivaldi_resp["isError"], true);
     assert!(ivaldi_resp["error"]["message"].as_str().unwrap().contains("Permission denied"));
 }
 
@@ -146,9 +179,9 @@ fn test_sandbox_fs_isolation() {
     
     // Should be success (tool ran) but exit code != 0
     let result = &resp["result"];
-    if result["status"] == "success" {
-        let inner = &result["result"];
-        assert_ne!(inner["exit_code"].as_i64().unwrap(), 0, "Writing to / should fail in sandbox");
+    if result["isError"] == false {
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("Writing to / should fail in sandbox") || text.contains("Read-only file system") || text.contains("\"exit_code\": 1"), "Got: {}", text);
     } else {
         // Or it failed to even spawn if bwrap is strict
         // But likely it spawned and touch returned error
@@ -189,9 +222,12 @@ fn test_sandbox_network_isolation() {
     let resp = server.recv();
     
     let result = &resp["result"];
-    if result["status"] == "success" {
-        let inner = &result["result"];
-        let exit_code = inner["exit_code"].as_i64().unwrap();
-        assert_ne!(exit_code, 0, "Network access should fail in sandbox");
+    if result["isError"] == false {
+        let text = result["content"][0]["text"].as_str().unwrap();
+        // If network is blocked, curl usually exits with code 6 or 28
+        assert!(text.contains("\"exit_code\"") && !text.contains("\"exit_code\": 0"), "Network access should fail in sandbox, got: {}", text);
+    } else {
+        // If it failed with isError: true, it might be a sandbox setup failure which is also a "denial" in a way
+        assert!(result["error"]["message"].as_str().unwrap().contains("Sandbox"), "Unexpected error: {:?}", result);
     }
 }

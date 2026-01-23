@@ -6,7 +6,7 @@ use cedar_policy::{
 };
 
 use thiserror::Error;
-use tracing::{info, warn};
+use tracing::info;
 
 #[derive(Debug, Error)]
 pub enum PolicyError {
@@ -27,29 +27,40 @@ pub struct PolicyEngine {
 }
 
 impl PolicyEngine {
-    /// Create a new PolicyEngine, loading all `.cedar` files from the given directory.
-    pub fn new(policy_dir: &Path) -> Result<Self, PolicyError> {
+    /// Create a new PolicyEngine, loading all `.cedar` files from the given directory (if provided).
+    pub fn new(policy_dir: Option<&Path>) -> Result<Self, PolicyError> {
         let mut policy_set = PolicySet::new();
+        let mut loaded_any = false;
 
-        if policy_dir.exists() {
-            for entry in std::fs::read_dir(policy_dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "cedar") {
-                    let src = std::fs::read_to_string(&path)?;
-                    let filename = path.file_stem().unwrap().to_string_lossy();
-                    let policy_id = PolicyId::from_str(&filename).unwrap_or_else(|_| PolicyId::from_str("default").unwrap());
-                    
-                    let policy = Policy::parse(Some(policy_id), &src)?;
-                    policy_set.add(policy)?;
-                    info!("Loaded policy file: {:?}", path);
+        if let Some(dir) = policy_dir {
+            if dir.exists() {
+                for entry in std::fs::read_dir(dir)? {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if path.extension().map_or(false, |ext| ext == "cedar") {
+                        let src = std::fs::read_to_string(&path)?;
+                        let filename = path.file_stem().unwrap().to_string_lossy();
+                        let policy_id = PolicyId::from_str(&filename).unwrap_or_else(|_| PolicyId::from_str("default").unwrap());
+                        
+                        let policy = Policy::parse(Some(policy_id), &src)?;
+                        policy_set.add(policy)?;
+                        info!("Loaded policy file: {:?}", path);
+                        loaded_any = true;
+                    }
                 }
             }
-        } else {
-            // Default: Permissive for beta (or restrictive? Plan said default deny for safe execution)
-            // Ideally we default deny. If no policies exist, nothing is permitted.
-            warn!("Policy directory {:?} not found. Defaulting to empty policy set (DENY ALL).", policy_dir);
         }
+
+        if !loaded_any {
+            tracing::debug!("No custom policies loaded. Using default ALLOW ALL policy.");
+        }
+
+        // Base Policy: ALLOW ALL. 
+        // This ensures tools work by default, and users only need to add 'forbid' rules to restrict them.
+        let src = r#"permit(principal, action, resource);"#;
+        let policy_id = PolicyId::from_str("static_permissive").unwrap();
+        let policy = Policy::parse(Some(policy_id), src).expect("Static permissive policy failed");
+        policy_set.add(policy).expect("Failed to add permissive policy");
 
         Ok(Self {
             policy_set: Arc::new(policy_set),
@@ -105,5 +116,51 @@ impl PolicyEngine {
                 Ok(false)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use std::fs;
+
+    #[test]
+    fn test_default_allow_all() {
+        let dir = tempdir().unwrap();
+        let engine = PolicyEngine::new(Some(dir.path())).unwrap();
+        
+        let allowed = engine.check(
+            "User::\"daryl\"",
+            "Action::\"read_file\"",
+            "Resource::\"/etc/passwd\""
+        ).unwrap();
+        
+        assert!(allowed, "Default policy should permit all actions");
+    }
+
+    #[test]
+    fn test_explicit_forbid() {
+        let dir = tempdir().unwrap();
+        let policy_path = dir.path().join("secure.cedar");
+        fs::write(&policy_path, r#"forbid(principal, action == Action::"delete_file", resource);"#).unwrap();
+        
+        let engine = PolicyEngine::new(Some(dir.path())).unwrap();
+        
+        // delete_file should be denied
+        let allowed = engine.check(
+            "User::\"daryl\"",
+            "Action::\"delete_file\"",
+            "Resource::\"/tags\""
+        ).unwrap();
+        assert!(!allowed, "Explicit forbid should deny access");
+        
+        // other actions should still be allowed by default permit
+        let allowed = engine.check(
+            "User::\"daryl\"",
+            "Action::\"read_file\"",
+            "Resource::\"/tags\""
+        ).unwrap();
+        assert!(allowed, "Other actions should still be allowed");
     }
 }

@@ -30,7 +30,7 @@ fn helper() {
     };
 
     let result = FsObserver::read_file(args);
-    let content = result.result.unwrap().content;
+    let content = result.content.unwrap().content;
 
     assert!(content.contains("fn main"));
     assert!(content.contains("fn helper"));
@@ -59,7 +59,7 @@ Line 5
     };
 
     let result = FsObserver::read_file(args);
-    let content = result.result.unwrap().content;
+    let content = result.content.unwrap().content;
 
     assert!(content.contains("TODO: Fix bug"));
     assert!(content.contains("FIXME: Another bug"));
@@ -89,7 +89,7 @@ DELTA
     };
 
     let result = FsObserver::read_file(args);
-    let content = result.result.unwrap().content;
+    let content = result.content.unwrap().content;
     
     if content.contains("ALPHA") {
         println!("DEBUG CONTENT:\n{}", content);

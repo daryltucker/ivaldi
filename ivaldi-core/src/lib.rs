@@ -32,8 +32,8 @@
 //!
 //! ```json
 //! {
-//!   "status": "success",
-//!   "result": { ... },
+//!   "isError": false,
+//!   "content": { ... },
 //!   "advisory": [
 //!     { "source": "adt", "level": "suggest", "message": "..." }
 //!   ]
@@ -71,7 +71,7 @@ pub mod session;    // Phase 4 (Sessions)
 pub mod meta;       // Phase 4 (IDE Metadata)
 // pub mod aiignore;   // Phase 1
 
-pub use response::{IvaldiResponse, ResponseStatus};
+pub use response::IvaldiResponse;
 pub use advisory::{AdvisoryMessage, AdvisoryLevel, AdvisorySource};
 pub use meta::IdeMetadata;
 pub mod policy;

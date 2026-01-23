@@ -1,5 +1,4 @@
 use ivaldi_core::observe::{FsObserver, Observer, ReadFileArgs};
-use ivaldi_core::ResponseStatus;
 use tempfile::TempDir;
 use std::fs::{self, File};
 use std::io::Write;
@@ -23,8 +22,8 @@ fn test_simulation_error_recovery() {
     };
     let res_naive = FsObserver::read_file(args_naive);
     
-    assert_eq!(res_naive.status, ResponseStatus::Error);
-    assert!(res_naive.error.unwrap().code.contains("binary"));
+    assert!(res_naive.is_error);
+    assert!(res_naive.error.as_ref().unwrap().code.contains("binary"));
     
     // Attempt 2: Force Read (Agent decides they know better)
     let args_force = ReadFileArgs {
@@ -34,7 +33,7 @@ fn test_simulation_error_recovery() {
     };
     let res_force = FsObserver::read_file(args_force);
     
-    assert_eq!(res_force.status, ResponseStatus::Success);
+    assert!(!res_force.is_error);
     // Content is lossy string, but success.
     
     
@@ -52,7 +51,7 @@ fn test_simulation_error_recovery() {
     let res_typo = FsObserver::read_file(args_typo);
     
     // Expect Error but with Advisory Hint in ACTION
-    assert_eq!(res_typo.status, ResponseStatus::Error);
+    assert!(res_typo.is_error);
     assert!(res_typo.advisory.iter().any(|a| 
         a.action.as_ref().map(|s| s.contains("Did you mean")).unwrap_or(false)
     ));
@@ -66,6 +65,6 @@ fn test_simulation_error_recovery() {
         ..Default::default()
     };
     let res_correct = FsObserver::read_file(args_correct);
-    assert_eq!(res_correct.status, ResponseStatus::Success);
-    assert!(res_correct.result.unwrap().content.contains("key=value"));
+    assert!(!res_correct.is_error);
+    assert!(res_correct.content.unwrap().content.contains("key=value"));
 }

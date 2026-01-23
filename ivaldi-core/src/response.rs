@@ -42,63 +42,36 @@ use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
 use crate::advisory::AdvisoryMessage;
 
-/// The status of an ivaldi operation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum ResponseStatus {
-    /// Operation succeeded completely
-    Success,
-    /// Operation succeeded but with warnings
-    Warning,
-    /// Operation failed
-    Error,
-}
-
 /// Unified response for all ivaldi operations.
 ///
-/// Every tool call returns this structure, ensuring agents can
-/// parse responses consistently regardless of the operation type.
-///
-/// # Example
-///
-/// ```json
-/// {
-///   "status": "success",
-///   "result": { "path": "/src/main.rs", "bytes_written": 1234 },
-///   "advisory": [
-///     { "source": "tool", "level": "info", "message": "Backup created" }
-///   ],
-///   "error": null
-/// }
-/// ```
+/// Refactored to align with Model Context Protocol (MCP) standard:
+/// - `is_error` maps to MCP `isError`
+/// - `content` maps to MCP `content` (generic T can be stringified at boundary)
+/// - `advisory` is our custom extension
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct IvaldiResponse<T> {
-    /// Operation status: success, warning, or error
-    pub status: ResponseStatus,
+    /// Whether the operation failed
+    #[serde(rename = "isError")]
+    pub is_error: bool,
     
-    /// The operation result (null on error)
+    /// The operation content/result (null on error)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<T>,
+    pub content: Option<T>,
     
     /// Advisory messages - the third channel
     /// Always an array for consistent parsing
     #[serde(default)]
     pub advisory: Vec<AdvisoryMessage>,
     
-    /// Error details (null on success)
+    /// Detailed error information (null on success)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<ErrorDetail>,
 }
 
 /// Structured error information.
-///
-/// Machine-readable error codes enable pattern matching:
-/// - ADT can learn which errors are common
-/// - Agents can decide retry vs abort
-/// - Logs can aggregate by error code
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ErrorDetail {
-    /// Machine-readable error code (e.g., "file_not_found", "permission_denied")
+    /// Machine-readable error code (e.g., "file_not_found")
     pub code: String,
     
     /// Human/agent readable error message
@@ -118,21 +91,21 @@ pub struct ErrorDetail {
 // ============================================================================
 
 impl<T> IvaldiResponse<T> {
-    /// Create a successful response with result
-    pub fn success(result: T) -> Self {
+    /// Create a successful response with content
+    pub fn success(content: T) -> Self {
         Self {
-            status: ResponseStatus::Success,
-            result: Some(result),
+            is_error: false,
+            content: Some(content),
             advisory: Vec::new(),
             error: None,
         }
     }
     
-    /// Create a successful response with result and multiple advisories
-    pub fn success_with_advisory(result: T, advisories: Vec<AdvisoryMessage>) -> Self {
+    /// Create a successful response with content and multiple advisories
+    pub fn success_with_advisory(content: T, advisories: Vec<AdvisoryMessage>) -> Self {
         Self {
-            status: ResponseStatus::Success,
-            result: Some(result),
+            is_error: false,
+            content: Some(content),
             advisory: advisories,
             error: None,
         }
@@ -141,8 +114,8 @@ impl<T> IvaldiResponse<T> {
     /// Create an error response
     pub fn error(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
-            status: ResponseStatus::Error,
-            result: None,
+            is_error: true,
+            content: None,
             advisory: Vec::new(),
             error: Some(ErrorDetail {
                 code: code.into(),
@@ -156,8 +129,8 @@ impl<T> IvaldiResponse<T> {
     /// Create an error response from an IvaldiError
     pub fn from_error(err: crate::error::IvaldiError) -> Self {
         Self {
-            status: ResponseStatus::Error,
-            result: None,
+            is_error: true,
+            content: None,
             advisory: Vec::new(),
             error: Some(ErrorDetail {
                 code: err.code().to_string(),
@@ -198,7 +171,7 @@ impl<T> IvaldiResponse<T> {
     
     /// Check if the response represents a successful operation
     pub fn is_success(&self) -> bool {
-        matches!(self.status, ResponseStatus::Success) && self.result.is_some()
+        !self.is_error && self.content.is_some()
     }
 }
 
@@ -210,15 +183,15 @@ mod tests {
     #[test]
     fn test_success_response() {
         let resp: IvaldiResponse<String> = IvaldiResponse::success("hello".to_string());
-        assert_eq!(resp.status, ResponseStatus::Success);
+        assert!(!resp.is_error);
         assert!(resp.error.is_none());
     }
     
     #[test]
     fn test_error_response() {
         let resp: IvaldiResponse<()> = IvaldiResponse::error("file_not_found", "Path does not exist");
-        assert_eq!(resp.status, ResponseStatus::Error);
-        assert!(resp.result.is_none());
+        assert!(resp.is_error);
+        assert!(resp.content.is_none());
         assert!(resp.error.is_some());
     }
 }

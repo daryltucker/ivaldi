@@ -102,13 +102,13 @@ pub async fn edit_files(
     for write_arg in prepared_writes {
         let resp = write_file(root, write_arg, journal);
         
-        if resp.status == crate::response::ResponseStatus::Error {
+        if resp.is_error {
             // Write failed
             validation_error = Some(format!("Write failed: {:?}", resp.error));
             break;
         }
-        // Unwrap panic safe if status is not Error (result should be Some)
-        if let Some(path) = resp.result {
+        // Unwrap panic safe if status is not Error (content should be Some)
+        if let Some(path) = resp.content {
             success_paths.push(path);
             undo_count += 1;
         } else {

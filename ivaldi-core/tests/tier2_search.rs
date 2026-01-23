@@ -24,7 +24,7 @@ fn world() { println!("world"); }
     let response = search_code(args).await;
     assert!(response.error.is_none());
     
-    let result = response.result.unwrap();
+    let result = response.content.unwrap();
     let names: Vec<String> = serde_json::from_value(result).unwrap();
     assert!(names.contains(&"hello".to_string()));
     assert!(names.contains(&"world".to_string()));
@@ -57,7 +57,7 @@ class Bar:
     let response = search_code(args).await;
     assert!(response.error.is_none());
     
-    let result = response.result.unwrap();
+    let result = response.content.unwrap();
     let matches = result.as_array().unwrap();
     // vecq friendly output is usually the full nodes
     let names: Vec<&str> = matches.iter()
@@ -90,7 +90,7 @@ async fn test_search_code_respects_gitignore() {
     };
 
     let response = search_code(args).await;
-    let result = response.result.unwrap();
+    let result = response.content.unwrap();
     let names: Vec<String> = serde_json::from_value(result).unwrap();
     
     assert!(names.contains(&"main".to_string()));
