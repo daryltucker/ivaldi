@@ -14,9 +14,6 @@ pub enum ResponseMode {
     /// OpenAI chat completions API format (for OpenAI-compatible clients)
     #[clap(name = "openai")]
     Openai,
-    /// OpenCode mode with auto-detection and OpenCode-specific handling
-    #[clap(name = "opencode")]
-    Opencode,
     /// Auto-detect based on client capabilities (default)
     Auto,
 }

@@ -4,11 +4,10 @@
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tracing::{info, trace};
+use tracing::info;
 use crate::state::ServerState;
 use crate::tools;
 use crate::tools::middleware::Middleware;
-use ivaldi_server::response;
 
 
 

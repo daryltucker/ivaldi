@@ -87,7 +87,7 @@ async fn handle_mcp_request(
     match result {
         Ok(ivaldi_response) => {
             // Format response based on mode using the formatter system
-            let registry = response::get_registry();
+            let _registry = response::get_registry();
             let is_error = ivaldi_response.is_error;
             let formatted_result = match *state.server_state.response_mode() {
                 ivaldi_server::cli::ResponseMode::Mcp => {
@@ -114,14 +114,7 @@ async fn handle_mcp_request(
                         response::openai::format_success_response(ivaldi_response)
                     }
                 },
-                ivaldi_server::cli::ResponseMode::Opencode => {
-                    let formatter = registry.get_formatter("opencode").unwrap();
-                    if is_error {
-                        formatter.format_error(ivaldi_response)
-                    } else {
-                        formatter.format_success(ivaldi_response)
-                    }
-                },
+
                 ivaldi_server::cli::ResponseMode::Auto => {
                     // Try to detect the appropriate format
                     if response::openai::detect_openai_request(&request) {
@@ -177,16 +170,12 @@ async fn handle_mcp_request(
         },
         Err(err) => {
             // Format error response based on mode
-            let registry = response::get_registry();
+            let _registry = response::get_registry();
             let error_response = match *state.server_state.response_mode() {
-                ivaldi_server::cli::ResponseMode::Openai | ivaldi_server::cli::ResponseMode::Opencode => {
+                ivaldi_server::cli::ResponseMode::Openai => {
                     // OpenAI/OpenCode mode: format error using appropriate formatter
-                    let formatter_name = if matches!(*state.server_state.response_mode(), ivaldi_server::cli::ResponseMode::Opencode) {
-                        "opencode"
-                    } else {
-                        "openai"
-                    };
-                    if let Some(formatter) = registry.get_formatter(formatter_name) {
+                    let formatter_name = "openai";
+                    if let Some(formatter) = _registry.get_formatter(formatter_name) {
                         let error_detail = ivaldi_core::response::ErrorDetail {
                             code: "tool_error".to_string(),
                             message: err.clone(),

@@ -6,7 +6,7 @@
 
 use ivaldi_core::response::{ErrorDetail, IvaldiResponse};
 use ivaldi_server::response::*;
-use serde_json::{json, Value};
+use serde_json::json;
 
 /// Test MCP success response format
 #[test]
@@ -165,90 +165,6 @@ fn test_openai_error_format() {
     assert!(formatted.get("error").is_some());
     assert_eq!(formatted["error"]["message"], "Command failed");
     assert_eq!(formatted["error"]["type"], "tool_error");
-}
-
-/// Test OpenCode success format
-#[test]
-fn test_opencode_success_format() {
-    let input_content = json!({"stdout": "test output", "exit_code": 0});
-
-    let ivaldi_response = IvaldiResponse {
-        content: Some(input_content.clone()),
-        is_error: false,
-        error: None,
-        advisory: vec![],
-    };
-
-    // Format using OpenCode formatter
-    let registry = get_registry();
-    let formatter = registry.get_formatter("opencode").unwrap();
-    let result = formatter.format_success(ivaldi_response);
-    let formatted = result.unwrap();
-
-    // Should be OpenAI-compatible format (choices array)
-    assert!(formatted.get("choices").is_some());
-    assert!(formatted.get("error").is_none()); // Should NOT have error field
-
-    let choices = formatted["choices"].as_array().unwrap();
-    assert_eq!(choices.len(), 1);
-    assert_eq!(
-        choices[0]["message"]["content"],
-        "{\"stdout\":\"test output\",\"exit_code\":0}"
-    );
-}
-
-/// Test OpenCode error format
-#[test]
-fn test_opencode_error_format() {
-    let error_detail = ErrorDetail {
-        code: "tool_error".to_string(),
-        message: "Command failed".to_string(),
-        hint: None,
-        context: None,
-    };
-
-    let ivaldi_response = IvaldiResponse {
-        content: None,
-        is_error: true,
-        error: Some(error_detail),
-        advisory: vec![],
-    };
-
-    // Format using OpenCode formatter
-    let registry = get_registry();
-    let formatter = registry.get_formatter("opencode").unwrap();
-    let result = formatter.format_error(ivaldi_response);
-    let formatted = result.unwrap();
-
-    // Should be OpenAI-compatible error format
-    assert!(formatted.get("error").is_some());
-    assert!(formatted.get("choices").is_none()); // Should NOT have choices field
-    assert_eq!(formatted["error"]["message"], "Command failed");
-    assert_eq!(formatted["error"]["type"], "tool_error");
-}
-
-/// Test OpenCode detection
-#[test]
-fn test_opencode_detection() {
-    let registry = get_registry();
-    let formatter = registry.get_formatter("opencode").unwrap();
-
-    // Should detect OpenCode-style request
-    let opencode_request = json!({
-        "_meta": {
-            "client_type": "opencode"
-        }
-    });
-
-    assert!(formatter.detect_compatibility(&opencode_request));
-
-    // Should not detect MCP-style request
-    let mcp_request = json!({
-        "jsonrpc": "2.0",
-        "method": "initialize"
-    });
-
-    assert!(!formatter.detect_compatibility(&mcp_request));
 }
 
 /// Test transport layer envelope handling

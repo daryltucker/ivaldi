@@ -41,17 +41,6 @@ pub mod types;
 // RE-EXPORTS
 // ============================================================================
 
-// Re-export formatters for convenience
-pub use mcp::{detect_mcp_request, format_error_content, format_success_content};
-pub use openai::{detect_openai_request, format_error_response, format_success_response};
-pub use opencode::{detect_opencode_request, OpenCodeFormatter};
-
-// Re-export types for convenience
-pub use types::{
-    ChatChoice, ChatCompletionResponse, ChatMessage, McpError, McpErrorResponse,
-    McpSuccessResponse, OpenAiError, OpenAiErrorResponse, UsageInfo,
-};
-
 // ============================================================================
 // TRAIT DEFINITION
 // ============================================================================
@@ -140,10 +129,10 @@ static REGISTRY: OnceLock<ResponseRegistry> = OnceLock::new();
 /// NOTE: MCP and OpenAI are now handled by dedicated modules, not registry
 pub fn get_registry() -> &'static ResponseRegistry {
     REGISTRY.get_or_init(|| {
-        let mut registry = ResponseRegistry::new();
+        let registry = ResponseRegistry::new();
 
         // Register built-in formatters (MCP and OpenAI handled separately)
-        registry.register(opencode::OpenCodeFormatter);
+        // No formatters registered - MCP and OpenAI handled directly
 
         registry
     })

@@ -57,7 +57,7 @@
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use serde_json::{json, Value};
-use tracing::{info, error, trace, warn};
+use tracing::{info, error, warn};
 use tracing_subscriber::prelude::*;
 use std::panic;
 
@@ -335,9 +335,9 @@ async fn main() -> anyhow::Result<()> {
                          match result {
                               Ok(ivaldi_response) => {
                                  if !id.is_null() && method != "notifications/initialized" {
-                                     // Format response based on mode using the formatter system
-                                      let is_error = ivaldi_response.is_error;
-                                      let registry = response::get_registry(); // For OpenAI/OpenCode formatting
+                                      // Format response based on mode using the formatter system
+                                       let is_error = ivaldi_response.is_error;
+                                       let _registry = response::get_registry(); // For OpenAI/OpenCode formatting
                                       let current_mode = state_clone.response_mode();
                                       tracing::trace!("Response mode detected: {:?}", current_mode);
                                       let formatted_result = match *current_mode {
@@ -365,20 +365,7 @@ async fn main() -> anyhow::Result<()> {
                                                   response::openai::format_success_response(ivaldi_response)
                                               }
                                           },
-                                          ivaldi_server::cli::ResponseMode::Opencode => {
-                                              tracing::trace!("Using OpenCode mode for formatting");
-                                              let formatter = registry.get_formatter("opencode");
-                                              if let Some(formatter) = formatter {
-                                                  if is_error {
-                                                      formatter.format_error(ivaldi_response)
-                                                  } else {
-                                                      formatter.format_success(ivaldi_response)
-                                                  }
-                                              } else {
-                                                  tracing::error!("OpenCode formatter not found in registry!");
-                                                  Err("OpenCode formatter not found".to_string())
-                                              }
-                                          },
+
                                           ivaldi_server::cli::ResponseMode::Auto => {
                                               // Try to detect the appropriate format
                                               if response::openai::detect_openai_request(&request) {
@@ -427,14 +414,10 @@ async fn main() -> anyhow::Result<()> {
                                 if !id.is_null() {
                                     // Format error response based on mode
                                     let error_response = match *state_clone.response_mode() {
-                                        ivaldi_server::cli::ResponseMode::Openai | ivaldi_server::cli::ResponseMode::Opencode => {
+                                        ivaldi_server::cli::ResponseMode::Openai => {
                                             // OpenAI/OpenCode mode: format error using appropriate formatter
                                             let registry = response::get_registry();
-                                            let formatter_name = if matches!(*state_clone.response_mode(), ivaldi_server::cli::ResponseMode::Opencode) {
-                                                "opencode"
-                                            } else {
-                                                "openai"
-                                            };
+                                            let formatter_name = "openai";
                                             let error_detail = ErrorDetail {
                                                 code: "tool_error".to_string(),
                                                 message: err.clone(),

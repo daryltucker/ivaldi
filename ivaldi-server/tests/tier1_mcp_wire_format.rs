@@ -61,6 +61,10 @@ fn test_mcp_initialize_returns_jsonrpc_envelope() {
             "clientInfo": {
                 "name": "test-client",
                 "version": "1.0.0"
+            },
+            "initializationOptions": {
+                "session_id": "test-session",
+                "project_root": "../"
             }
         }
     });
@@ -124,7 +128,15 @@ fn test_mcp_tools_list_returns_jsonrpc_envelope() {
         "params": {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": { "name": "test", "version": "1.0" }
+            "clientInfo": { "name": "test", "version": "1.0" },
+            "initializationOptions": {
+                "session_id": "test-session-tools-list",
+                "project_root": env!("CARGO_MANIFEST_DIR")
+            },
+            "initializationOptions": {
+                "session_id": "test-session-tools-list",
+                "project_root": env!("CARGO_MANIFEST_DIR")
+            }
         }
     });
 
@@ -243,7 +255,11 @@ fn test_mcp_tools_call_success_returns_jsonrpc_with_content() {
         "params": {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": { "name": "test", "version": "1.0" }
+            "clientInfo": { "name": "test", "version": "1.0" },
+            "initializationOptions": {
+                "session_id": "test-session-tools-call-success",
+                "project_root": env!("CARGO_MANIFEST_DIR")
+            }
         }
     });
     writeln!(stdin, "{}", serde_json::to_string(&init_request).unwrap()).unwrap();
@@ -259,7 +275,7 @@ fn test_mcp_tools_call_success_returns_jsonrpc_with_content() {
         "params": {
             "name": "read_file",
             "arguments": {
-                "path": "Cargo.toml"
+                "path": "../Cargo.toml"
             }
         }
     });
@@ -353,7 +369,11 @@ fn test_mcp_tools_call_error_returns_jsonrpc_with_is_error() {
         "params": {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": { "name": "test", "version": "1.0" }
+            "clientInfo": { "name": "test", "version": "1.0" },
+            "initializationOptions": {
+                "session_id": "test-session-tools-call-error",
+                "project_root": env!("CARGO_MANIFEST_DIR")
+            }
         }
     });
     writeln!(stdin, "{}", serde_json::to_string(&init_request).unwrap()).unwrap();
@@ -429,72 +449,5 @@ fn test_mcp_tools_call_error_returns_jsonrpc_with_is_error() {
         error.get("message").is_some(),
         "error must have 'message'. Got: {}",
         serde_json::to_string_pretty(&error).unwrap()
-    );
-}
-
-/// Test: Response mode opencode still produces valid JSON-RPC for MCP protocol
-/// OpenCode IS an MCP client - it needs JSON-RPC envelope
-#[test]
-fn test_opencode_mode_still_produces_jsonrpc_envelope() {
-    let mut child = Command::new("ivaldi-server")
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .env("IVALDI_RESPONSE_MODE", "opencode")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn ivaldi-server");
-
-    let mut stdin = child.stdin.take().expect("Failed to open stdin");
-    let stdout = child.stdout.take().expect("Failed to open stdout");
-
-    let request = json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": { "name": "opencode", "version": "1.0" }
-        }
-    });
-
-    writeln!(stdin, "{}", serde_json::to_string(&request).unwrap()).unwrap();
-    drop(stdin);
-
-    let reader = BufReader::new(stdout);
-    let mut response_line = String::new();
-    for line in reader.lines() {
-        if let Ok(line) = line {
-            if !line.trim().is_empty() {
-                response_line = line;
-                break;
-            }
-        }
-    }
-
-    child.kill().ok();
-
-    let response: Value = serde_json::from_str(&response_line)
-        .expect(&format!("Failed to parse response: {}", response_line));
-
-    // Even in OpenCode mode, MCP protocol messages MUST have JSON-RPC envelope
-    assert_eq!(
-        response.get("jsonrpc").and_then(|v| v.as_str()),
-        Some("2.0"),
-        "OpenCode mode must still produce JSON-RPC envelope. Got: {}",
-        serde_json::to_string_pretty(&response).unwrap()
-    );
-
-    assert!(
-        response.get("id").is_some(),
-        "OpenCode mode must still include id. Got: {}",
-        serde_json::to_string_pretty(&response).unwrap()
-    );
-
-    assert!(
-        response.get("result").is_some(),
-        "OpenCode mode must still include result. Got: {}",
-        serde_json::to_string_pretty(&response).unwrap()
     );
 }

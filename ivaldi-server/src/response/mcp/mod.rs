@@ -20,5 +20,4 @@ pub mod detect;
 pub mod format;
 
 // Re-export public API
-pub use detect::detect_mcp_request;
 pub use format::{format_error_content, format_success_content};
