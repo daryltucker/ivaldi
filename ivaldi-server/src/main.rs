@@ -186,6 +186,8 @@ async fn main() -> anyhow::Result<()> {
             std::process::exit(1);
         }
     };
+
+
     
     if state.config().enable_gitignore {
         info!("Config: Gitignore Filtering ENABLED");
@@ -272,36 +274,9 @@ async fn main() -> anyhow::Result<()> {
                         match method {
                             "initialize" => protocol::handle_initialize(&request, &state_clone),
                             "notifications/initialized" => { Ok(json!({})) }, // Empty success
-                            "tools/list" => {
-                                let result = protocol::handle_tools_list(&state_clone);
-                                match result {
-                                    Ok(response) => {
-                                        // For OpenAI mode, return response directly without JSON-RPC wrapper
-                                        tracing::info!("Response mode: {:?}", state_clone.response_mode());
-                                        if matches!(*state_clone.response_mode(), ivaldi_server::cli::ResponseMode::Openai) {
-                                            tracing::info!("Using OpenAI mode - no JSON-RPC wrapper");
-                                            Ok(response)
-                                        } else {
-                                            tracing::info!("Using MCP mode - with JSON-RPC wrapper");
-                                            Ok(json!({"jsonrpc": "2.0", "id": id, "result": response}))
-                                        }
-                                    }
-                                    Err(e) => Err(format!("Tool list error: {}", e))
-                                }
-                            },
+                            "tools/list" => protocol::handle_tools_list(&state_clone),
                             "tools/call" => {
-                                let result = protocol::handle_tools_call(&request, &state_clone, &cli_args_clone, &middleware).await;
-                                match result {
-                                    Ok(response) => {
-                                        // For OpenAI mode, return response directly without JSON-RPC wrapper
-                                        if matches!(*state_clone.response_mode(), ivaldi_server::cli::ResponseMode::Openai) {
-                                            Ok(response)
-                                        } else {
-                                            Ok(json!({"jsonrpc": "2.0", "id": id, "result": response}))
-                                        }
-                                    }
-                                    Err(e) => Ok(json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32601, "message": e}}))
-                                }
+                                protocol::handle_tools_call(&request, &state_clone, &cli_args_clone, &middleware).await
                             },
                             _ => {
                                 if id.is_null() { return Ok(json!({})); }
@@ -312,8 +287,16 @@ async fn main() -> anyhow::Result<()> {
                         match result {
                             Ok(res) => {
                                 if !id.is_null() && method != "notifications/initialized" {
-                                    let response = json!({ "jsonrpc": "2.0", "id": id, "result": res });
-                                    let mut response_string = serde_json::to_string(&response).unwrap();
+                                    // Check if response should be wrapped in JSON-RPC based on mode
+                                    let response_to_send = if matches!(*state_clone.response_mode(), ivaldi_server::cli::ResponseMode::Openai) {
+                                        // OpenAI mode: send response directly without JSON-RPC wrapper
+                                        res
+                                    } else {
+                                        // MCP mode: wrap in JSON-RPC
+                                        json!({ "jsonrpc": "2.0", "id": id, "result": res })
+                                    };
+
+                                    let mut response_string = serde_json::to_string(&response_to_send).unwrap();
                                     response_string.push('\n');
                                     if let Err(e) = stdout.write_all(response_string.as_bytes()).await {
                                         error!(error = %e, "Failed to write to stdout");

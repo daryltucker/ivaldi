@@ -307,12 +307,26 @@ fn test_tool_namespace_prefixing() {
     server.send(list_req);
     let list_resp = server.recv();
 
-    // Validate MCP response format: should be {"jsonrpc": "2.0", "result": {"jsonrpc": "2.0", "result": {"tools": [...]}}}
-    // Note: Due to current implementation, we have double wrapping - this needs to be fixed
+    // Validate MCP response format: should be {"jsonrpc": "2.0", "result": {"tools": [...]}}
     assert_eq!(list_resp["jsonrpc"], "2.0", "Response should be JSON-RPC 2.0");
-    assert!(list_resp["result"]["result"]["tools"].is_array(), "Nested result should contain tools array. Response: {:?}", list_resp);
 
-    let tools = list_resp["result"]["result"]["tools"].as_array().unwrap();
+    // Debug the response structure
+    if !list_resp["result"]["tools"].is_array() {
+        println!("DEBUG: list_resp keys: {:?}", list_resp.as_object().unwrap().keys().collect::<Vec<_>>());
+        println!("DEBUG: result is_object: {:?}", list_resp["result"].is_object());
+        if let Some(result_obj) = list_resp["result"].as_object() {
+            println!("DEBUG: result keys: {:?}", result_obj.keys().collect::<Vec<_>>());
+        }
+        panic!("Result should contain tools array. Full response: {:?}", list_resp);
+    }
+
+    // Summary for debugging
+    let tools_count = list_resp["result"]["tools"].as_array().unwrap().len();
+    println!("✓ MCP tools/list: {} tools returned, first tool prefixed: {}",
+             tools_count,
+             list_resp["result"]["tools"][0]["name"].as_str().unwrap().starts_with("testns_"));
+
+    let tools = list_resp["result"]["tools"].as_array().unwrap();
 
     // Check that first tool has prefix
     let first_tool_name = tools[0]["name"].as_str().unwrap();
@@ -340,9 +354,13 @@ fn test_tool_namespace_prefixing() {
     server.send(call_req);
     let call_resp = server.recv();
 
-    // Validate MCP tool call response format (with double wrapping)
+    // Validate MCP tool call response format
     assert_eq!(call_resp["jsonrpc"], "2.0", "Response should be JSON-RPC 2.0");
-    assert!(call_resp["result"]["result"]["content"].is_array(), "Nested tool call result should have content array. Response: {:?}", call_resp);
+    assert!(call_resp["result"]["content"].is_array(), "Tool call result should have content array");
+
+    // Summary for debugging
+    let content_count = call_resp["result"]["content"].as_array().unwrap().len();
+    println!("✓ MCP tool call: {} content items returned", content_count);
 
     // Clean up env vars
     unsafe { env::remove_var("IVALDI_TOOL_NAMESPACE") };

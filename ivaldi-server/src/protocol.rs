@@ -9,7 +9,8 @@ use crate::state::ServerState;
 use crate::tools;
 use crate::tools::middleware::Middleware;
 use ivaldi_server::response;
-use ivaldi_core::IvaldiResponse;
+
+use chrono;
 
 
 /// Handle MCP initialize request
@@ -73,8 +74,43 @@ pub fn handle_tools_list(state: &ServerState) -> Result<Value, String> {
         }
     }
 
-    // Return the tools list - main.rs handles JSON-RPC wrapping based on mode
-    Ok(json!({ "tools": manual["tools"] }))
+    // Format response based on configured mode
+    let tools_list = json!({ "tools": manual["tools"] });
+    match *state.response_mode() {
+        ivaldi_server::cli::ResponseMode::Mcp => Ok(tools_list),
+        ivaldi_server::cli::ResponseMode::Openai => {
+            // For OpenAI mode, wrap tools list in OpenAI format
+            let mut result = json!({
+                "id": format!("ivaldi-{}", chrono::Utc::now().timestamp()),
+                "object": "chat.completion",
+                "created": chrono::Utc::now().timestamp(),
+                "model": "ivaldi-mcp",
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0
+                }
+            });
+
+            // Put tools list in choices[0].message.content
+            let tools_json = serde_json::to_string(&tools_list).unwrap_or("{}".to_string());
+            result["choices"] = json!([{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": tools_json
+                },
+                "finish_reason": "tool_calls"
+            }]);
+
+            Ok(result)
+        },
+        ivaldi_server::cli::ResponseMode::Auto => {
+            // For auto mode, default to MCP for tools/list
+            Ok(tools_list)
+        }
+    }
 }
 
 /// Handle MCP tools/call request
