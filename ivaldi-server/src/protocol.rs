@@ -4,20 +4,19 @@
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tracing::info;
+use tracing::{info, trace};
 use crate::state::ServerState;
 use crate::tools;
 use crate::tools::middleware::Middleware;
 use ivaldi_server::response;
 
-use chrono;
 
 
 /// Handle MCP initialize request
 pub fn handle_initialize(
     request: &Value,
     state: &ServerState,
-) -> Result<Value, String> {
+) -> Result<ivaldi_core::IvaldiResponse<Value>, String> {
     let params = request.get("params").unwrap_or(&Value::Null);
     
     // --- SESSION HOOK ---
@@ -37,8 +36,8 @@ pub fn handle_initialize(
         .map(|session| {
             info!(session_id = %session.id, root = ?session.root, "Session Attached");
             state.set_session(session.clone());
-            
-            json!({
+
+            let init_data = json!({
                 "protocolVersion": "2024-11-05",
                 "serverInfo": {
                     "name": "ivaldi-mcp",
@@ -47,13 +46,20 @@ pub fn handle_initialize(
                 "capabilities": {
                     "tools": {}
                 },
-                "session": session 
-            })
+                "session": session
+            });
+
+            ivaldi_core::IvaldiResponse {
+                content: Some(init_data),
+                is_error: false,
+                error: None,
+                advisory: vec![],
+            }
         })
 }
 
 /// Handle MCP tools/list request
-pub fn handle_tools_list(state: &ServerState) -> Result<Value, String> {
+pub fn handle_tools_list(state: &ServerState) -> Result<ivaldi_core::IvaldiResponse<Value>, String> {
     // Return pre-computed JSON from manual, with optional namespace prefixing
     const MANUAL_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime_manual.json"));
     let mut manual: Value = serde_json::from_str(MANUAL_JSON)
@@ -74,43 +80,15 @@ pub fn handle_tools_list(state: &ServerState) -> Result<Value, String> {
         }
     }
 
-    // Format response based on configured mode
+    // Return tools list as IvaldiResponse (formatting happens in main.rs)
     let tools_list = json!({ "tools": manual["tools"] });
-    match *state.response_mode() {
-        ivaldi_server::cli::ResponseMode::Mcp => Ok(tools_list),
-        ivaldi_server::cli::ResponseMode::Openai => {
-            // For OpenAI mode, wrap tools list in OpenAI format
-            let mut result = json!({
-                "id": format!("ivaldi-{}", chrono::Utc::now().timestamp()),
-                "object": "chat.completion",
-                "created": chrono::Utc::now().timestamp(),
-                "model": "ivaldi-mcp",
-                "choices": [],
-                "usage": {
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0
-                }
-            });
 
-            // Put tools list in choices[0].message.content
-            let tools_json = serde_json::to_string(&tools_list).unwrap_or("{}".to_string());
-            result["choices"] = json!([{
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": tools_json
-                },
-                "finish_reason": "tool_calls"
-            }]);
-
-            Ok(result)
-        },
-        ivaldi_server::cli::ResponseMode::Auto => {
-            // For auto mode, default to MCP for tools/list
-            Ok(tools_list)
-        }
-    }
+    Ok(ivaldi_core::IvaldiResponse {
+        content: Some(tools_list),
+        is_error: false,
+        error: None,
+        advisory: vec![],
+    })
 }
 
 /// Handle MCP tools/call request
@@ -119,7 +97,7 @@ pub async fn handle_tools_call(
     state: &ServerState,
     cli_args: &ivaldi_server::Args,
     middleware: &std::sync::Arc<Middleware>,
-) -> Result<Value, String> {
+) -> Result<ivaldi_core::IvaldiResponse<Value>, String> {
     let params = request.get("params").unwrap_or(&Value::Null);
     let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let args = params.get("arguments").cloned().unwrap_or(json!({}));
@@ -199,40 +177,9 @@ pub async fn handle_tools_call(
     let duration = start_time.elapsed();
     info!(tool = name, duration_ms = duration.as_millis(), "Tool completed");
 
-    // Format response based on configured mode
-    // MCP Mode: Errors return JSON-RPC error objects (standard for MCP clients like opencode)
-    // OpenAI Mode: Errors wrapped in result.error field (for OpenAI-compatible clients)
-    // Auto Mode: Detect based on client hints, default to MCP
-    let final_result = match *state.response_mode() {
-        ivaldi_server::cli::ResponseMode::Mcp => response::handle_mcp_response(response),
-        ivaldi_server::cli::ResponseMode::Openai => response::handle_openai_response(response),
-        ivaldi_server::cli::ResponseMode::Auto => {
-            let detected_mode = detect_response_mode(&request, state);
-            match detected_mode {
-                ivaldi_server::cli::ResponseMode::Mcp => response::handle_mcp_response(response),
-                ivaldi_server::cli::ResponseMode::Openai => response::handle_openai_response(response),
-                ivaldi_server::cli::ResponseMode::Auto => response::handle_mcp_response(response), // fallback to MCP
-            }
-        }
-    };
-
-    final_result
+    // Return the raw IvaldiResponse (formatting happens in main.rs)
+    Ok(response)
 }
 
-/// Auto-detect response mode based on client hints
-/// Currently checks for OpenAI-style client metadata, defaults to MCP
-fn detect_response_mode(request: &Value, _state: &ServerState) -> ivaldi_server::cli::ResponseMode {
-    // Check for OpenAI-style client hints in request metadata
-    if let Some(meta) = request.get("_meta") {
-        if let Some(client_type) = meta.get("client_type").and_then(|v| v.as_str()) {
-            if client_type == "openai" {
-                return ivaldi_server::cli::ResponseMode::Openai;
-            }
-        }
-    }
 
-    // Future: Could check for other client hints or past request patterns
-    // For now, default to MCP standard as it's the official protocol
-    ivaldi_server::cli::ResponseMode::Mcp
-}
 

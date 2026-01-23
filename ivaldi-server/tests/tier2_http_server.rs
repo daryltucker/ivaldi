@@ -39,8 +39,11 @@ async fn test_http_read_file() {
     
     let args = json!({ "path": test_file.to_str().unwrap() });
     let body = server.call_tool(&client, "read_file", args).await;
-    
-    let content = body["result"]["content"][0]["text"].as_str().unwrap();
+
+    // The response is MCP format: body["result"]["content"][0]["text"] contains JSON string
+    let text_content = body["result"]["content"][0]["text"].as_str().unwrap();
+    let parsed_content: serde_json::Value = serde_json::from_str(text_content).unwrap();
+    let content = parsed_content["content"].as_str().unwrap();
     assert!(content.contains("Test content here"));
 }
 

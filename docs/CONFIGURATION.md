@@ -13,6 +13,7 @@ These parameters change the running state of the system and can be set via CLI f
 | `config` | `IVALDI_CONFIG` | `--config` | Path to a custom configuration file | None |
 | `exec_sandboxing` | `IVALDI_EXEC_SANDBOXING` | `--exec-sandboxing` | Example: --exec-sandboxing=fs,net | None |
 | `transport` | `IVALDI_TRANSPORT` | `--transport` | Transport mode: stdio (default) or http | None |
+| `response_mode` | `IVALDI_RESPONSE_MODE` | `--response-mode` | Response format mode: mcp, openai, or auto (default: auto) | None |
 | `port` | `IVALDI_PORT` | `--port` | Port for HTTP server (default: 8080) | None |
 
 ### Core Options

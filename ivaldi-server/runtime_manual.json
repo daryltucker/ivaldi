@@ -360,151 +360,69 @@
       "name": "git_read",
       "description": "Arguments for the git_read tool\n\n**Behavior**: Provides read-only access to Git history. Supports blame, log, diff, and search operations.\n\n**Actions**: - `blame`: Identifies who changed which lines in a file. - `log`: Lists commit history, optionally filtered by path or time. - `diff`: Returns the changes between branches, tags, or commits. - `search`: Searches commit messages or content using regex. - `raw`: Executes arbitrary git commands (use with caution).\n\n**Safety**: Read-only. Does not modify the repository state.\n\n**Usage**: Use to understand the evolution of code, find when a bug was introduced, or compare implementations across versions.",
       "inputSchema": {
+        "additionalProperties": false,
+        "title": "GitReadArgs",
+        "description": "Arguments for the git_read tool\n\n**Behavior**: Provides read-only access to Git history. Supports blame, log, diff, and search operations.\n\n**Actions**: - `blame`: Identifies who changed which lines in a file. - `log`: Lists commit history, optionally filtered by path or time. - `diff`: Returns the changes between branches, tags, or commits. - `search`: Searches commit messages or content using regex. - `raw`: Executes arbitrary git commands (use with caution).\n\n**Safety**: Read-only. Does not modify the repository state.\n\n**Usage**: Use to understand the evolution of code, find when a bug was introduced, or compare implementations across versions.",
+        "type": "object",
         "properties": {
           "project_root": {
             "description": "Optional: Override project root for git operations. If omitted, uses session's project_root from MCP initialize.",
             "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "blame",
+              "log",
+              "diff",
+              "search",
+              "raw"
+            ],
+            "description": "The action to perform"
+          },
+          "lines": {
+            "default": null,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "path": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 0
+          },
+          "since": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "stat_only": {
+            "default": false,
+            "type": "boolean"
+          },
+          "to": {
+            "default": "HEAD",
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
-        "title": "GitReadArgs",
-        "description": "Arguments for the git_read tool\n\n**Behavior**: Provides read-only access to Git history. Supports blame, log, diff, and search operations.\n\n**Actions**: - `blame`: Identifies who changed which lines in a file. - `log`: Lists commit history, optionally filtered by path or time. - `diff`: Returns the changes between branches, tags, or commits. - `search`: Searches commit messages or content using regex. - `raw`: Executes arbitrary git commands (use with caution).\n\n**Safety**: Read-only. Does not modify the repository state.\n\n**Usage**: Use to understand the evolution of code, find when a bug was introduced, or compare implementations across versions.",
-        "type": "object",
-        "oneOf": [
-          {
-            "type": "object",
-            "required": [
-              "action",
-              "path"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "blame"
-                ]
-              },
-              "lines": {
-                "default": null,
-                "type": "array",
-                "items": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              },
-              "path": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "action"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "log"
-                ]
-              },
-              "limit": {
-                "default": 50,
-                "type": "integer",
-                "minimum": 0
-              },
-              "path": {
-                "type": "string"
-              },
-              "since": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "action",
-              "from"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "diff"
-                ]
-              },
-              "from": {
-                "type": "string"
-              },
-              "path": {
-                "type": "string"
-              },
-              "stat_only": {
-                "default": false,
-                "type": "boolean"
-              },
-              "to": {
-                "default": "HEAD",
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "action",
-              "query"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "search"
-                ]
-              },
-              "limit": {
-                "default": 50,
-                "type": "integer",
-                "minimum": 0
-              },
-              "path": {
-                "type": "string"
-              },
-              "query": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "action",
-              "args"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "raw"
-                ]
-              },
-              "args": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            },
-            "additionalProperties": false
-          }
-        ],
-        "additionalProperties": false,
-        "required": []
+        "required": [
+          "action"
+        ]
       }
     },
     {
@@ -537,14 +455,12 @@
           },
           "level": {
             "description": "Minimum log level to include",
-            "anyOf": [
-              {
-                "$ref": "#/definitions/LogLevel"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "properties": {},
+            "required": [
+              "action"
+            ],
+            "type": "object",
+            "additionalProperties": false
           },
           "limit": {
             "description": "Maximum number of entries to return (default: 100)",

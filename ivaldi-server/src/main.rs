@@ -57,7 +57,7 @@
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use serde_json::{json, Value};
-use tracing::{info, error, warn};
+use tracing::{info, error, trace, warn};
 use tracing_subscriber::prelude::*;
 use std::panic;
 
@@ -66,17 +66,19 @@ mod adt;
 mod state;
 mod protocol;
 mod server_http;
+mod response;
 
 use state::ServerState;
 use ivaldi_server::{Args, Transport};
 use ivaldi_core::config::GlobalConfig; // Added
+use ivaldi_core::response::ErrorDetail;
 use clap::Parser;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Parse CLI arguments (includes ENV var fallback)
     let cli_args = Args::parse();
-    
+
     // Initialize logging with IVALDI_LOG (user-friendly) or RUST_LOG (advanced)
     let log_filter = if let Ok(ivaldi_log) = std::env::var("IVALDI_LOG") {
         // User-friendly IVALDI_LOG levels
@@ -99,21 +101,21 @@ async fn main() -> anyhow::Result<()> {
         // Default to info level
         "ivaldi_server=info,ivaldi_core=info".to_string()
     };
-    
+
     let journald_layer = tracing_journald::layer().ok();
-    
+
     // Disable ANSI colors if stderr is not a terminal (e.g. piped to Mahal logs)
     use std::io::IsTerminal;
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_ansi(std::io::stderr().is_terminal())
         .with_writer(std::io::stderr);
-    
+
     tracing_subscriber::registry()
         .with(journald_layer)
         .with(fmt_layer)
         .with(tracing_subscriber::EnvFilter::new(log_filter))
         .init();
-    
+
     // Global panic hook: log panic info before process terminates
     // This ensures Agent gets useful info even on catastrophic failure
     panic::set_hook(Box::new(|panic_info| {
@@ -125,19 +127,19 @@ async fn main() -> anyhow::Result<()> {
         } else {
             "Unknown panic payload".to_string()
         };
-        
+
         let location = panic_info.location().map(|loc| {
             format!("{}:{}:{}", loc.file(), loc.line(), loc.column())
         }).unwrap_or_else(|| "unknown location".to_string());
-        
+
         // Log to journald/stderr so it's captured
         eprintln!("PANIC at {}: {}", location, msg);
         // Also try tracing (may not work if runtime is dead)
         tracing::error!(location = %location, message = %msg, "CRITICAL: Server panic");
     }));
-    
+
     info!(version = env!("CARGO_PKG_VERSION"), "ivaldi-server starting");
-    
+
     // 0. Load Configuration
     // Try CLI path -> ENV -> Default
     let config_path = cli_args.config.as_deref().map(std::path::PathBuf::from);
@@ -150,7 +152,7 @@ async fn main() -> anyhow::Result<()> {
     if let Some(features) = &cli_args.exec_sandboxing {
         use ivaldi_server::cli::SandboxFeature;
         use ivaldi_core::execution::IsolationMode;
-        
+
         // If specific features are requested, we enable Bubblewrap mode
         if features.iter().any(|f| matches!(f, SandboxFeature::Fs | SandboxFeature::Net | SandboxFeature::All)) {
              config.safety.isolation_mode = IsolationMode::Bubblewrap;
@@ -168,16 +170,16 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
-    
-    info!("Status: Operational (Phase 4: Session Management)");
+
+    info!("Status: Operational (Phase 4: Session Management) - OpenCode Compatible");
     if let ivaldi_core::execution::IsolationMode::Bubblewrap = config.safety.isolation_mode {
         info!(
-            fs_isolation = config.safety.ro_bind_root, 
+            fs_isolation = config.safety.ro_bind_root,
             network_isolation = config.safety.network_isolation,
             "Safety: Sandbox ENABLED"
         );
     }
-    
+
     // 2. Initialize State with Config
     let state = match ServerState::new(config, cli_args.tool_namespace.clone(), cli_args.response_mode.clone()) {
         Ok(s) => s,
@@ -187,8 +189,38 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    // Log the actual mode being used
+    info!("🚀 Server initialized with response mode: {:?}", state.response_mode());
+    info!("📝 Tool namespace: {:?}", state.tool_namespace());
+    info!("🔧 Transport: {:?}", cli_args.transport);
 
-    
+    // Log environment variables for debugging (especially for OpenCode integration)
+    info!("🌍 === Environment Variables Check ===");
+    if let Ok(mode) = std::env::var("IVALDI_RESPONSE_MODE") {
+        info!("🌍 ENV IVALDI_RESPONSE_MODE: {}", mode);
+    } else {
+        info!("🌍 ENV IVALDI_RESPONSE_MODE: not set (defaulting to MCP mode)");
+    }
+
+    // Log all IVALDI_* environment variables for debugging
+    for (key, value) in std::env::vars() {
+        if key.starts_with("IVALDI_") {
+            info!("🌍 ENV {}: {}", key, value);
+        }
+    }
+
+    // Check for OpenCode-specific indicators
+    if std::env::var("OPENAI_API_KEY").is_ok() {
+        info!("🌍 Detected OPENAI_API_KEY - possible OpenCode client");
+    }
+
+    if let Ok(parent) = std::env::var("PARENT_PROCESS") {
+        info!("🌍 Parent process: {}", parent);
+    }
+
+    info!("🌍 === End Environment Variables ===");
+
+
     if state.config().enable_gitignore {
         info!("Config: Gitignore Filtering ENABLED");
     }
@@ -225,7 +257,7 @@ async fn main() -> anyhow::Result<()> {
             let reader = BufReader::new(stdin);
             let mut lines = reader.lines();
             let mut stdout = tokio::io::stdout();
-            
+
             let id_re = regex::Regex::new(r#""id"\s*:\s*(\d+|"[^"]+")"#).unwrap();
             while let Some(line) = lines.next_line().await? {
                 if line.trim().is_empty() { continue; }
@@ -269,32 +301,132 @@ async fn main() -> anyhow::Result<()> {
                 let state_clone = state.clone();
                 let cli_args_clone = cli_args.clone();
 
-                tokio::select! {
-                    result = async {
+                 tracing::info!("About to process method: '{}' with id: {:?}", method, id);
+                 tokio::select! {
+                     result = async {
                         match method {
                             "initialize" => protocol::handle_initialize(&request, &state_clone),
-                            "notifications/initialized" => { Ok(json!({})) }, // Empty success
+                            "notifications/initialized" => {
+                                Ok(ivaldi_core::IvaldiResponse {
+                                    content: Some(json!({})),
+                                    is_error: false,
+                                    error: None,
+                                    advisory: vec![],
+                                })
+                            },
                             "tools/list" => protocol::handle_tools_list(&state_clone),
                             "tools/call" => {
                                 protocol::handle_tools_call(&request, &state_clone, &cli_args_clone, &middleware).await
                             },
                             _ => {
-                                if id.is_null() { return Ok(json!({})); }
+                                if id.is_null() {
+                                    return Ok(ivaldi_core::IvaldiResponse {
+                                        content: Some(json!({})),
+                                        is_error: false,
+                                        error: None,
+                                        advisory: vec![],
+                                    });
+                                }
                                 Err("Method not found".to_string())
                             }
                         }
-                    } => {
-                        match result {
-                            Ok(res) => {
-                                if !id.is_null() && method != "notifications/initialized" {
-                                    // Check if response should be wrapped in JSON-RPC based on mode
-                                    let response_to_send = if matches!(*state_clone.response_mode(), ivaldi_server::cli::ResponseMode::Openai) {
-                                        // OpenAI mode: send response directly without JSON-RPC wrapper
-                                        res
-                                    } else {
-                                        // MCP mode: wrap in JSON-RPC
-                                        json!({ "jsonrpc": "2.0", "id": id, "result": res })
-                                    };
+                     } => {
+                         tracing::info!("Method '{}' processed, result: {:?}", method, result.is_ok());
+                         match result {
+                              Ok(ivaldi_response) => {
+                                 if !id.is_null() && method != "notifications/initialized" {
+                                     // Format response based on mode using the formatter system
+                                      let is_error = ivaldi_response.is_error;
+                                      let registry = response::get_registry(); // For OpenAI/OpenCode formatting
+                                      let current_mode = state_clone.response_mode();
+                                      tracing::debug!("Response mode detected: {:?}", current_mode);
+                                      let formatted_result = match *current_mode {
+                                          ivaldi_server::cli::ResponseMode::Mcp => {
+                                              if is_error {
+                                                  // Use new MCP module for error formatting
+                                                  let error_detail = ivaldi_response.error.as_ref().unwrap();
+                                                  Ok(response::mcp::format_error_content(
+                                                      error_detail.code.clone(),
+                                                      error_detail.message.clone()
+                                                  ))
+                                              } else {
+                                                  // Use new MCP module for success formatting
+                                                  Ok(response::mcp::format_success_content(
+                                                      ivaldi_response.content.unwrap_or(Value::Null)
+                                                  ))
+                                              }
+                                          },
+                                          ivaldi_server::cli::ResponseMode::Openai => {
+                                              if is_error {
+                                                  // Use new OpenAI module for error formatting
+                                                  response::openai::format_error_response(ivaldi_response)
+                                              } else {
+                                                  // Use new OpenAI module for success formatting
+                                                  response::openai::format_success_response(ivaldi_response)
+                                              }
+                                          },
+                                          ivaldi_server::cli::ResponseMode::Opencode => {
+                                              tracing::debug!("Using OpenCode mode for formatting");
+                                              let formatter = registry.get_formatter("opencode");
+                                              if let Some(formatter) = formatter {
+                                                  if is_error {
+                                                      formatter.format_error(ivaldi_response)
+                                                  } else {
+                                                      formatter.format_success(ivaldi_response)
+                                                  }
+                                              } else {
+                                                  tracing::error!("OpenCode formatter not found in registry!");
+                                                  Err("OpenCode formatter not found".to_string())
+                                              }
+                                          },
+                                          ivaldi_server::cli::ResponseMode::Auto => {
+                                              // Try to detect the appropriate format
+                                              if response::openai::detect_openai_request(&request) {
+                                                  if is_error {
+                                                      response::openai::format_error_response(ivaldi_response)
+                                                  } else {
+                                                      response::openai::format_success_response(ivaldi_response)
+                                                  }
+                                              } else {
+                                                  // Fallback to MCP using new MCP module
+                                                  if is_error {
+                                                      let error_detail = ivaldi_response.error.as_ref().unwrap();
+                                                      Ok(response::mcp::format_error_content(
+                                                          error_detail.code.clone(),
+                                                          error_detail.message.clone()
+                                                      ))
+                                                  } else {
+                                                      Ok(response::mcp::format_success_content(
+                                                          ivaldi_response.content.unwrap_or(Value::Null)
+                                                      ))
+                                                  }
+                                              }
+                                          }
+                                     }.unwrap_or_else(|_| {
+                                         json!({ "error": { "message": "Formatting error", "type": "formatting_error" } })
+                                     });
+
+                                     // Wrap MCP responses in JSON-RPC envelope, leave OpenAI/OpenCode as-is
+                                      let response_to_send = match *state_clone.response_mode() {
+                                           ivaldi_server::cli::ResponseMode::Mcp | ivaldi_server::cli::ResponseMode::Auto => {
+                                               // For MCP, always use result field (even for errors, for backward compatibility)
+                                               json!({
+                                                   "jsonrpc": "2.0",
+                                                   "id": id,
+                                                   "result": formatted_result
+                                               })
+                                           },
+                                          ivaldi_server::cli::ResponseMode::Opencode => {
+                                               // For OpenCode, send raw format without JSON-RPC wrapper
+                                               tracing::debug!("OpenCode mode: sending raw response without JSON-RPC wrapper");
+                                               formatted_result
+                                           },
+                                          ivaldi_server::cli::ResponseMode::Openai => {
+                                               // For OpenAI, send raw format without JSON-RPC wrapper
+                                               tracing::debug!("OpenAI mode: sending raw response without JSON-RPC wrapper");
+                                               formatted_result
+                                           }
+                                      };
 
                                     let mut response_string = serde_json::to_string(&response_to_send).unwrap();
                                     response_string.push('\n');
@@ -307,8 +439,43 @@ async fn main() -> anyhow::Result<()> {
                             },
                             Err(err) => {
                                 if !id.is_null() {
-                                    let response = json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32601, "message": err } });
-                                    let mut response_string = serde_json::to_string(&response).unwrap();
+                                    // Format error response based on mode
+                                    let error_response = match *state_clone.response_mode() {
+                                        ivaldi_server::cli::ResponseMode::Openai | ivaldi_server::cli::ResponseMode::Opencode => {
+                                            // OpenAI/OpenCode mode: format error using appropriate formatter
+                                            let registry = response::get_registry();
+                                            let formatter_name = if matches!(*state_clone.response_mode(), ivaldi_server::cli::ResponseMode::Opencode) {
+                                                "opencode"
+                                            } else {
+                                                "openai"
+                                            };
+                                            let error_detail = ErrorDetail {
+                                                code: "tool_error".to_string(),
+                                                message: err.clone(),
+                                                hint: None,
+                                                context: None,
+                                            };
+                                            let ivaldi_error = ivaldi_core::IvaldiResponse {
+                                                content: None,
+                                                is_error: true,
+                                                error: Some(error_detail),
+                                                advisory: vec![],
+                                            };
+                                            if let Some(formatter) = registry.get_formatter(formatter_name) {
+                                                formatter.format_error(ivaldi_error).unwrap_or_else(|_| {
+                                                    json!({ "error": { "message": err, "type": "formatting_error" } })
+                                                })
+                                            } else {
+                                                json!({ "error": { "message": err, "type": "formatter_not_found" } })
+                                            }
+                                        },
+                                        _ => {
+                                            // MCP mode: standard JSON-RPC error
+                                            json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32601, "message": err } })
+                                        }
+                                    };
+
+                                    let mut response_string = serde_json::to_string(&error_response).unwrap();
                                     response_string.push('\n');
                                     let _ = stdout.write_all(response_string.as_bytes()).await;
                                     let _ = stdout.flush().await;
@@ -328,6 +495,6 @@ async fn main() -> anyhow::Result<()> {
             server_http::run(cli_args.port, state, middleware, cli_args.clone()).await?;
         }
     }
-    
+
     Ok(())
 }

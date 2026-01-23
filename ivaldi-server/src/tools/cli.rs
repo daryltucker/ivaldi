@@ -42,10 +42,13 @@ pub async fn run_command(args: RunCommandArgs, state: &ServerState) -> anyhow::R
         .map_err(|e| anyhow::anyhow!("Policy check error: {}", e))?;
 
     if !allowed {
-        return Ok(IvaldiResponse::error(
+        eprintln!("DEBUG: Policy denied access to command '{}'", args.command);
+        let error_response = IvaldiResponse::error(
             "-32003", // Custom auth error code
             format!("Permission denied: Execution of command '{}' is restricted by security policy.", args.command)
-        ).with_context(serde_json::json!({ "policy": "cedar-denied" })));
+        ).with_context(serde_json::json!({ "policy": "cedar-denied" }));
+        eprintln!("DEBUG: Returning error response: is_error={}, content={:?}", error_response.is_error, error_response.content);
+        return Ok(error_response);
     }
 
     // 3. Execution

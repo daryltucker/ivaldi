@@ -28,6 +28,7 @@ release:
 install: release
 	@echo "$(GREEN)Installing to ~/.cargo/bin...$(RESET)"
 	install -m 755 target/release/ivaldi ~/.cargo/bin/ivaldi
+	install -m 755 target/release/ivaldi-server ~/.cargo/bin/ivaldi-server
 	@echo "$(GREEN)Installed to ~/.cargo/bin$(RESET)"
 
 test-unit:
