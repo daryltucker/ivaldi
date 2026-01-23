@@ -163,6 +163,42 @@
       }
     },
     {
+      "name": "run_command",
+      "description": "Arguments for the run_command tool\n\n**Behavior**: Executes shell commands with timeout protection and policy controls. **Safety**: Subject to security policy checks. Commands are executed in isolated processes. **Advisory**: Use with caution. Commands may have side effects on the filesystem. **Usage**: Run shell commands like 'git status', 'npm install', or custom scripts.",
+      "inputSchema": {
+        "properties": {
+          "args": {
+            "description": "Arguments to pass to the program",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "description": "The program to execute (e.g. \"git\", \"ls\")",
+            "type": "string"
+          },
+          "cwd": {
+            "description": "Working directory (optional, defaults to project root)",
+            "type": "string"
+          },
+          "timeout_ms": {
+            "description": "Timeout in milliseconds (default 5000)",
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "title": "RunCommandArgs",
+        "description": "Arguments for the run_command tool\n\n**Behavior**: Executes shell commands with timeout protection and policy controls. **Safety**: Subject to security policy checks. Commands are executed in isolated processes. **Advisory**: Use with caution. Commands may have side effects on the filesystem. **Usage**: Run shell commands like 'git status', 'npm install', or custom scripts.",
+        "type": "object",
+        "required": [
+          "args",
+          "command"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "write_file",
       "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count when appending to help you decide if you intended to overwrite. **Usage**: Use for creating new files or adding content. Use `overwrite=true` only when you are certain you want to replace everything.",
       "inputSchema": {

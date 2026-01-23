@@ -59,6 +59,7 @@ Add this to your `claude_config.json`:
 - [**Agent Manual (Auto-generated)**](docs/MAN_AGENT.json) - Direct schema for agents.
 - [**Configuration Reference**](docs/CONFIGURATION.md) - ENV and CLI flag details.
 - [**Testing Standards**](docs/TESTING_STANDARDS.md) - Coverage and stability protocols.
+- [**Troubleshooting Guide**](docs/TROUBLESHOOTING.md) - Common issues and solutions.
 
 ## 🤝 Mahal Integration
 This project is optimized for use within the **Mahal** ecosystem. It provides rich metadata headers and structured JSON responses that Mahal's reasoning engine can optimize against.

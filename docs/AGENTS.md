@@ -29,6 +29,7 @@ Welcome to **ivaldi-mcp**. Follow this checklist to operate with precision, safe
 - [ ] **Code Intelligence**: Use `search_code` to find functions, classes, or references.
     - *Friendly Mode*: `category="functions", name_pattern=".*controller"`
     - *Power Mode*: `query=".functions[] | select(.visibility == \"pub\")"`
+    - **⚠️ Note**: Complex AST queries may timeout. Use `IVALDI_SEARCH_TIMEOUT=60` for large codebases or complex queries.
 
 ## 4. System Observation (The Black Box)
 - [ ] **History**: Use `git_read(action="blame|log|diff")` to understand *why* code changed.

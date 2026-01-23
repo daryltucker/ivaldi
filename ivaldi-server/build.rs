@@ -11,6 +11,26 @@ use ivaldi_core::mutate::{WriteFileArgs, EditFileArgs};
 use ivaldi_core::undo::UndoArgs;
 use ivaldi_core::session::types::{SessionInitArgs, SessionListArgs, SessionGetArgs, SessionUpdateArgs};
 
+// Define run_command schema manually since it's in ivaldi_server (circular dependency)
+/// Arguments for the run_command tool
+///
+/// **Behavior**: Executes shell commands with timeout protection and policy controls.
+/// **Safety**: Subject to security policy checks. Commands are executed in isolated processes.
+/// **Advisory**: Use with caution. Commands may have side effects on the filesystem.
+/// **Usage**: Run shell commands like 'git status', 'npm install', or custom scripts.
+#[derive(schemars::JsonSchema)]
+#[allow(dead_code)]
+struct RunCommandArgs {
+    /// The program to execute (e.g. "git", "ls")
+    command: String,
+    /// Arguments to pass to the program
+    args: Vec<String>,
+    /// Working directory (optional, defaults to project root)
+    cwd: Option<String>,
+    /// Timeout in milliseconds (default 5000)
+    timeout_ms: Option<u64>,
+}
+
 fn main() -> anyhow::Result<()> {
     // 1. Setup paths
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
@@ -21,6 +41,7 @@ fn main() -> anyhow::Result<()> {
         ("read_file", schema_for!(ReadFileArgs)),
         ("read_files", schema_for!(ReadFilesArgs)),
         ("list_dir", schema_for!(ListDirArgs)),
+        ("run_command", schema_for!(RunCommandArgs)),
         ("write_file", schema_for!(WriteFileArgs)),
         ("edit_file", schema_for!(EditFileArgs)),
         ("undo", schema_for!(UndoArgs)),

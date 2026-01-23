@@ -183,8 +183,22 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
         "search_code" => {
             let args: SearchCodeArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
-            
-            let response = ivaldi_core::observe::search_code(args).await;
+
+            // Add configurable timeout protection to prevent client timeouts/crashes
+            // IVALDI_SEARCH_TIMEOUT: Timeout for code search operations in seconds (default: 30)
+            let timeout_secs = std::env::var("IVALDI_SEARCH_TIMEOUT")
+                .unwrap_or_else(|_| "30".to_string())
+                .parse::<u64>()
+                .unwrap_or(30);
+
+            let response = tokio::time::timeout(
+                std::time::Duration::from_secs(timeout_secs),
+                ivaldi_core::observe::search_code(args)
+            ).await
+            .map_err(|_| ToolError::Execution(
+                format!("Search operation timed out after {} seconds. Try narrowing your search scope or increase IVALDI_SEARCH_TIMEOUT.", timeout_secs)
+            ))?;
+
             Ok(serde_json::to_value(response).unwrap())
         },
         "git_read" => {
