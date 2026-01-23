@@ -301,7 +301,7 @@ async fn main() -> anyhow::Result<()> {
                 let state_clone = state.clone();
                 let cli_args_clone = cli_args.clone();
 
-                 tracing::info!("About to process method: '{}' with id: {:?}", method, id);
+                 tracing::trace!("About to process method: '{}' with id: {:?}", method, id);
                  tokio::select! {
                      result = async {
                         match method {
@@ -331,7 +331,7 @@ async fn main() -> anyhow::Result<()> {
                             }
                         }
                      } => {
-                         tracing::info!("Method '{}' processed, result: {:?}", method, result.is_ok());
+                         tracing::trace!("Method '{}' processed, result: {:?}", method, result.is_ok());
                          match result {
                               Ok(ivaldi_response) => {
                                  if !id.is_null() && method != "notifications/initialized" {
@@ -339,7 +339,7 @@ async fn main() -> anyhow::Result<()> {
                                       let is_error = ivaldi_response.is_error;
                                       let registry = response::get_registry(); // For OpenAI/OpenCode formatting
                                       let current_mode = state_clone.response_mode();
-                                      tracing::debug!("Response mode detected: {:?}", current_mode);
+                                      tracing::trace!("Response mode detected: {:?}", current_mode);
                                       let formatted_result = match *current_mode {
                                           ivaldi_server::cli::ResponseMode::Mcp => {
                                               if is_error {
@@ -366,7 +366,7 @@ async fn main() -> anyhow::Result<()> {
                                               }
                                           },
                                           ivaldi_server::cli::ResponseMode::Opencode => {
-                                              tracing::debug!("Using OpenCode mode for formatting");
+                                              tracing::trace!("Using OpenCode mode for formatting");
                                               let formatter = registry.get_formatter("opencode");
                                               if let Some(formatter) = formatter {
                                                   if is_error {
@@ -406,27 +406,13 @@ async fn main() -> anyhow::Result<()> {
                                          json!({ "error": { "message": "Formatting error", "type": "formatting_error" } })
                                      });
 
-                                     // Wrap MCP responses in JSON-RPC envelope, leave OpenAI/OpenCode as-is
-                                      let response_to_send = match *state_clone.response_mode() {
-                                           ivaldi_server::cli::ResponseMode::Mcp | ivaldi_server::cli::ResponseMode::Auto => {
-                                               // For MCP, always use result field (even for errors, for backward compatibility)
-                                               json!({
-                                                   "jsonrpc": "2.0",
-                                                   "id": id,
-                                                   "result": formatted_result
-                                               })
-                                           },
-                                          ivaldi_server::cli::ResponseMode::Opencode => {
-                                               // For OpenCode, send raw format without JSON-RPC wrapper
-                                               tracing::debug!("OpenCode mode: sending raw response without JSON-RPC wrapper");
-                                               formatted_result
-                                           },
-                                          ivaldi_server::cli::ResponseMode::Openai => {
-                                               // For OpenAI, send raw format without JSON-RPC wrapper
-                                               tracing::debug!("OpenAI mode: sending raw response without JSON-RPC wrapper");
-                                               formatted_result
-                                           }
-                                      };
+                                     // ALL response modes use JSON-RPC envelope for stdio MCP transport
+                                     // The response mode only affects what goes INSIDE the result field
+                                     let response_to_send = json!({
+                                         "jsonrpc": "2.0",
+                                         "id": id,
+                                         "result": formatted_result
+                                     });
 
                                     let mut response_string = serde_json::to_string(&response_to_send).unwrap();
                                     response_string.push('\n');

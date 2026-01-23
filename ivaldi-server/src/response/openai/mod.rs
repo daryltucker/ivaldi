@@ -20,4 +20,4 @@ pub mod format;
 
 // Re-export public API
 pub use detect::detect_openai_request;
-pub use format::{format_success_response, format_error_response};
+pub use format::{format_error_response, format_success_response};
