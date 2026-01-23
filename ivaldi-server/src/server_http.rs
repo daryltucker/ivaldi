@@ -172,7 +172,7 @@ async fn handle_mcp_request(
             let error_response = match *state.server_state.response_mode() {
                 ivaldi_server::cli::ResponseMode::Openai => {
                     // OpenAI mode: format error using direct OpenAI formatting
-                    let error_detail = ivaldi_core::response::ErrorDetail {
+                    let error_detail = ErrorDetail {
                         code: "tool_error".to_string(),
                         message: err.clone(),
                         hint: None,
