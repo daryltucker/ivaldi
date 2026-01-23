@@ -8,6 +8,17 @@ use clap::{Parser, ValueEnum};
 use ivaldi_core::session::ConversationMode;
 
 #[derive(Debug, Clone, ValueEnum)]
+pub enum ResponseMode {
+    /// MCP Standard: errors in `error` field
+    Mcp,
+    /// OpenAI chat completions API format (for OpenCode compatibility)
+    #[clap(name = "openai")]
+    Openai,
+    /// Auto-detect based on client capabilities (default)
+    Auto,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
 pub enum Transport {
     Stdio,
     Http,
@@ -31,7 +42,7 @@ pub struct Args {
     /// Conversation ID for naked/stdio drivers (overrides IDE metadata)
     #[arg(long, env = "IVALDI_CONVERSATION_ID")]
     pub conversation_id: Option<String>,
-    
+
     /// Conversation mode: persist (default, full tracking) or incognito (ephemeral, no vecdb)
     #[arg(long, env = "IVALDI_CONVERSATION_MODE", value_parser = parse_conversation_mode)]
     pub conversation_mode: Option<ConversationMode>,
@@ -39,6 +50,10 @@ pub struct Args {
     /// API Key for authenticated services
     #[arg(long, env = "IVALDI_API_KEY")]
     pub api_key: Option<String>,
+
+    /// Tool namespace prefix (helps avoid clashes with other MCP servers)
+    #[arg(long, env = "IVALDI_TOOL_NAMESPACE")]
+    pub tool_namespace: Option<String>,
 
     /// Path to a custom configuration file
     #[arg(long, short = 'c', env = "IVALDI_CONFIG")]
@@ -52,6 +67,10 @@ pub struct Args {
     /// Transport mode: stdio (default) or http
     #[arg(long, value_enum, default_value_t = Transport::Stdio, env = "IVALDI_TRANSPORT")]
     pub transport: Transport,
+
+    /// Response format mode: mcp, openai, or auto (default: auto)
+    #[arg(long, value_enum, default_value_t = ResponseMode::Auto, env = "IVALDI_RESPONSE_MODE")]
+    pub response_mode: ResponseMode,
 
     /// Port for HTTP server (default: 8080)
     #[arg(long, default_value_t = 8080, env = "IVALDI_PORT")]

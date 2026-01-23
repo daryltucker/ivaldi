@@ -28,7 +28,18 @@ pub enum ToolError {
 
 /// Execute a tool by name (Requires State for Session tools)
 pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerState) -> Result<Value, ToolError> {
-    match name {
+    // Strip namespace prefix if present
+    let stripped_name = if let Some(ns) = state.tool_namespace() {
+        let clean_ns = ns.trim_matches('_');
+        if !clean_ns.is_empty() {
+            name.strip_prefix(&(clean_ns.to_string() + "_")).unwrap_or(name)
+        } else {
+            name
+        }
+    } else {
+        name
+    };
+    match stripped_name {
         "find_files" => {
             let mut args: FindFilesArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;

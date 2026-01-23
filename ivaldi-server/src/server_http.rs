@@ -66,7 +66,7 @@ async fn handle_mcp_request(
             // JSON-RPC notification, no response
             return (StatusCode::OK, Json(json!({"jsonrpc": "2.0", "result": null}))); 
         },
-        "tools/list" => protocol::handle_tools_list(),
+        "tools/list" => protocol::handle_tools_list(&state.server_state),
         "tools/call" => protocol::handle_tools_call(&request, &state.server_state, &state.args, &state.middleware).await,
         _ => {
             if id.is_null() { 

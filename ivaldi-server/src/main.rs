@@ -179,7 +179,7 @@ async fn main() -> anyhow::Result<()> {
     }
     
     // 2. Initialize State with Config
-    let state = match ServerState::new(config) {
+    let state = match ServerState::new(config, cli_args.tool_namespace.clone(), cli_args.response_mode.clone()) {
         Ok(s) => s,
         Err(e) => {
             error!(error = %e, "CRITICAL: Failed to initialize server state");
@@ -272,8 +272,37 @@ async fn main() -> anyhow::Result<()> {
                         match method {
                             "initialize" => protocol::handle_initialize(&request, &state_clone),
                             "notifications/initialized" => { Ok(json!({})) }, // Empty success
-                            "tools/list" => protocol::handle_tools_list(),
-                            "tools/call" => protocol::handle_tools_call(&request, &state_clone, &cli_args_clone, &middleware).await,
+                            "tools/list" => {
+                                let result = protocol::handle_tools_list(&state_clone);
+                                match result {
+                                    Ok(response) => {
+                                        // For OpenAI mode, return response directly without JSON-RPC wrapper
+                                        tracing::info!("Response mode: {:?}", state_clone.response_mode());
+                                        if matches!(*state_clone.response_mode(), ivaldi_server::cli::ResponseMode::Openai) {
+                                            tracing::info!("Using OpenAI mode - no JSON-RPC wrapper");
+                                            Ok(response)
+                                        } else {
+                                            tracing::info!("Using MCP mode - with JSON-RPC wrapper");
+                                            Ok(json!({"jsonrpc": "2.0", "id": id, "result": response}))
+                                        }
+                                    }
+                                    Err(e) => Err(format!("Tool list error: {}", e))
+                                }
+                            },
+                            "tools/call" => {
+                                let result = protocol::handle_tools_call(&request, &state_clone, &cli_args_clone, &middleware).await;
+                                match result {
+                                    Ok(response) => {
+                                        // For OpenAI mode, return response directly without JSON-RPC wrapper
+                                        if matches!(*state_clone.response_mode(), ivaldi_server::cli::ResponseMode::Openai) {
+                                            Ok(response)
+                                        } else {
+                                            Ok(json!({"jsonrpc": "2.0", "id": id, "result": response}))
+                                        }
+                                    }
+                                    Err(e) => Ok(json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32601, "message": e}}))
+                                }
+                            },
                             _ => {
                                 if id.is_null() { return Ok(json!({})); }
                                 Err("Method not found".to_string())

@@ -2,7 +2,7 @@
 id = "default"
 root = "/tmp/.tmpZE7NFU"
 created_at = "2026-01-18T20:00:17.086998895Z"
-last_active = "2026-01-23T02:54:57.366338446Z"
+last_active = "2026-01-23T07:02:54.425405264Z"
 
 [sessions.default.conversations]
 
@@ -16,7 +16,7 @@ aiignore_patterns = []
 id = "test-session"
 root = "/tmp/.tmpVOihcZ"
 created_at = "2026-01-18T20:00:58.019339052Z"
-last_active = "2026-01-23T02:54:56.921975217Z"
+last_active = "2026-01-23T07:02:53.727571943Z"
 
 [sessions.test-session.conversations]
 
