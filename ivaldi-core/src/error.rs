@@ -52,6 +52,9 @@ pub enum IvaldiError {
     #[error("File too large: {0}")]
     FileTooLarge(PathBuf),
 
+    #[error("Write collision: {0}")]
+    WriteCollision(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -74,6 +77,7 @@ impl IvaldiError {
             IvaldiError::Query(_) => "query_error",
             IvaldiError::Regex(_) => "regex_error",
             IvaldiError::Refactoring(_) => "refactoring_error",
+            IvaldiError::WriteCollision(_) => "collision_error",
             IvaldiError::Internal(_) => "internal_error",
         }
     }

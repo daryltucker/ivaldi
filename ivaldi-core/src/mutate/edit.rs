@@ -105,16 +105,26 @@ pub async fn edit_files(
     journal: &Journal,
 ) -> IvaldiResponse<Vec<PathBuf>> {
     // PHASE 1: PREPARE (Read & Calculate New Content)
-    let mut prepared_writes = Vec::new();
-    
+    // We use a local cache to track the "working state" of files during the transaction.
+    // This allows multiple edits to the same file to build upon each other instead
+    // of overwriting each other.
+    let mut file_states: std::collections::HashMap<PathBuf, String> = std::collections::HashMap::new();
+    let mut unique_paths = Vec::new();
+
     for edit_arg in args.edits {
-        // Read
-        let content = match fs::read_to_string(&edit_arg.path) {
-            Ok(c) => c,
-            Err(e) => return IvaldiResponse::error("read_error", format!("Failed to read {}: {}", edit_arg.path.display(), e)),
+        // Get the latest content (from cache if already touched, otherwise disk)
+        let content = if let Some(cached_content) = file_states.get(&edit_arg.path) {
+            cached_content.clone()
+        } else {
+            let disk_content = match fs::read_to_string(&edit_arg.path) {
+                Ok(c) => c,
+                Err(e) => return IvaldiResponse::error("read_error", format!("Failed to read {}: {}", edit_arg.path.display(), e)),
+            };
+            unique_paths.push(edit_arg.path.clone());
+            disk_content
         };
         
-        // Selector logic (duplicated from edit_file, maybe extract?)
+        // Selector logic
         let selector = if let Some(q) = &edit_arg.query {
                 crate::ast_edit::EditSelector::Node(q.to_string())
         } else if let Some(g) = &edit_arg.grep {
@@ -125,20 +135,28 @@ pub async fn edit_files(
                 return IvaldiResponse::error("invalid_args", format!("Invalid args for {}: Selector required", edit_arg.path.display()));
         };
         
-        // Edit
+        // Apply Edit to the CURRENT state (could be already modified in this turn)
         let file_type = FileType::from_path(&edit_arg.path);
         let new_content = match crate::ast_edit::edit_content(&content, file_type, selector, &edit_arg.replacement).await {
             Ok(c) => c,
             Err(e) => return IvaldiResponse::error("edit_error", format!("Failed to edit {}: {}", edit_arg.path.display(), e)),
         };
         
-        // Store for Phase 2
-        prepared_writes.push(WriteFileArgs {
-            path: edit_arg.path,
-            content: new_content,
-            overwrite: true, // ALWAYS overwrite, we merged the content ourselves
-            append: false,
-        });
+        // Update cache for next possible edit on this path
+        file_states.insert(edit_arg.path.clone(), new_content);
+    }
+    
+    // Convert cached final states to WriteFileArgs
+    let mut prepared_writes = Vec::new();
+    for path in unique_paths {
+        if let Some(content) = file_states.remove(&path) {
+            prepared_writes.push(WriteFileArgs {
+                path,
+                content,
+                overwrite: true,
+                append: false,
+            });
+        }
     }
     
     // PHASE 2: COMMIT (Write with Rollback)

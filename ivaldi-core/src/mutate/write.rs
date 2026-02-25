@@ -33,13 +33,17 @@ pub fn write_file(
     }
 
     if target_path.exists() {
-        // === THE HAMMER SAFETY (Blind Write Collision prevention) ===
-        // If file exists and no directive (overwrite/append) is given, we perform a safe >>
-        // instead of a destructive >. This prevents "The Hammer" from accidentally destroying 
-        // history or human work.
-        let should_append = args.append || !args.overwrite;
+        let should_fail_on_collision = !args.overwrite && !args.append;
         
-        if should_append {
+        if should_fail_on_collision {
+            // THE HAMMER SAFETY: Fail if ambiguous
+            return IvaldiResponse::from_error(IvaldiError::WriteCollision(format!(
+                "File '{}' exists. Set 'overwrite: true' to destroy or 'append: true' to concatenate.",
+                target_path.display()
+            )));
+        }
+
+        if args.append {
             // SAFE APPEND MODE (cat >>)
             action_type = ActionType::Update;
             
@@ -65,22 +69,10 @@ pub fn write_file(
             final_content = format!("{}{}", existing_content, content);
             
             // ADVISORY (The Coaching Channel):
-            if !args.append {
-                // Implicit append (safety fallback) - Loud Warning for Blind Writes
-                advisories.push(AdvisoryMessage::tool_warn(serde_json::json!({
-                    "issue": "blind_write_collision",
-                    "message": "Whoa! File existed and you didn't specify 'overwrite: true'.",
-                    "action_taken": "I used append (>>) instead of overwrite (>) to prevent data loss.",
-                    "suggestion": "If you genuinely meant to DESTROY the old file and write a fresh one, set 'overwrite: true'.",
-                    "stats": { "original_lines": lines_before, "original_bytes": bytes_before }
-                })));
-            } else {
-                // Explicit append flag - Info only
-                advisories.push(AdvisoryMessage::tool_info(format!(
-                    "Appended to end. Original: {} lines, {} bytes.",
-                    lines_before, bytes_before
-                )));
-            }
+            advisories.push(AdvisoryMessage::tool_info(format!(
+                "Appended to end. Original: {} lines, {} bytes.",
+                lines_before, bytes_before
+            )));
         } else {
             // OVERWRITE MODE (The Hammer - cat >)
             // Agent explicitly asked to destroy the file contents and write fresh.

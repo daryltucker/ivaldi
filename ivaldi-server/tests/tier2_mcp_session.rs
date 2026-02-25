@@ -80,7 +80,7 @@ fn test_mcp_session_init_and_path_resolution() {
     let resp = server.recv();
     assert!(resp["result"]["content"][0]["text"].as_str().unwrap().contains("agent-switched-session"));
 
-    // 5. Verify Smart Append
+    // 5. Verify Explicit Append
     // Write Init
     let write_req = json!({
         "jsonrpc": "2.0",
@@ -108,6 +108,7 @@ fn test_mcp_session_init_and_path_resolution() {
             "arguments": {
                 "path": "lifecycle.txt",
                 "content": " World",
+                "append": true
             }
         }
     });

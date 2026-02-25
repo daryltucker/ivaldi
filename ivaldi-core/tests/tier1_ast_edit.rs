@@ -213,9 +213,9 @@ async fn test_line_range_invalid_returns_error() {
     assert_eq!(final_content, original);
 }
 
-/// **TRUTH**: Smart append default adds to existing file without --force
+/// **TRUTH**: Smart append default is DISABLED. Must be explicit.
 #[test]
-fn test_write_default_appends_to_existing() {
+fn test_write_default_fails_on_existing() {
     let dir = tempdir().unwrap();
     let file = dir.path().join("test.txt");
     let journal = Journal::open(dir.path().join("journal.jsonl")).unwrap();
@@ -231,26 +231,26 @@ fn test_write_default_appends_to_existing() {
     let result1 = Mutator::write_file(dir.path(), args, &journal);
     assert!(result1.is_success());
 
-    // Write again with default options (should append)
+    // Write again with default options (should FAIL now)
     let additional = "Line 3\n";
-    let args_append = WriteFileArgs {
+    let args_default = WriteFileArgs {
         path: file.clone(),
         content: additional.to_string(),
         overwrite: false,
         append: false,
     };
-    let result2 = Mutator::write_file(dir.path(), args_append, &journal);
-    assert!(result2.is_success());
+    let result2 = Mutator::write_file(dir.path(), args_default, &journal);
     
-    // Check for "blind_write_collision" advisory
-    let has_append_advisory = result2.advisory.iter().any(|a| {
-        a.content.get("issue").map(|v| v == "blind_write_collision").unwrap_or(false)
-    });
-    assert!(has_append_advisory, "Should have advisory about blind write collision. Advisories: {:?}", result2.advisory);
+    // VERIFY: It failed with WriteCollision
+    assert!(result2.is_error, "Should fail on collision by default");
+    match result2.error {
+        Some(e) => assert_eq!(e.code, "collision_error"),
+        None => panic!("Expected error detail"),
+    }
 
-    // VERIFY: Content was appended
+    // VERIFY: Content was NOT changed
     let final_content = fs::read_to_string(&file).unwrap();
-    assert_eq!(final_content, "Line 1\nLine 2\nLine 3\n");
+    assert_eq!(final_content, original);
 }
 
 #[test]
