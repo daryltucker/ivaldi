@@ -24,6 +24,15 @@ build:
 release:
 	@echo "$(GREEN)Building release binaries...$(RESET)"
 	$(CARGO) build --workspace --release
+	@VERSION=v$$(grep '^version' Cargo.toml | head -n 1 | awk -F'"' '{print $$2}'); \
+	if git status > /dev/null 2>&1; then \
+		if git rev-parse $$VERSION >/dev/null 2>&1; then \
+			echo "$(YELLOW)Tag $$VERSION already exists.$(RESET)"; \
+		else \
+			echo "$(GREEN)Creating git tag $$VERSION...$(RESET)"; \
+			git tag -a $$VERSION -m "Release $$VERSION"; \
+		fi \
+	fi
 
 install: release
 	@echo "$(GREEN)Installing to ~/.cargo/bin...$(RESET)"

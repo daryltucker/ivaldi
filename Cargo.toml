@@ -61,5 +61,5 @@ tracing-journald = "0.3"
 
 # Internal
 ivaldi-core = { path = "ivaldi-core" } # Correct for local member
-vecdb-common = { git = "https://github.com/daryltucker/vecdb", version = "0.0.9" }
-vecq = { git = "https://github.com/daryltucker/vecdb", version = "0.0.9" }
+vecdb-common = { git = "https://github.com/daryltucker/vecdb", version = "1.0.0" }
+vecq = { git = "https://github.com/daryltucker/vecdb", version = "1.0.0" }
