@@ -3,7 +3,7 @@ use ivaldi_core::mutate::{Mutator, WriteFileArgs, EditFileArgs, RenameSymbolArgs
 use ivaldi_core::undo::{Journal, Undoer};
 use tempfile::TempDir;
 use std::fs;
-use anyhow::Result;
+
 
 #[tokio::test]
 async fn test_simulation_refactoring_workflow() {
@@ -47,7 +47,7 @@ async fn test_simulation_refactoring_workflow() {
         replacement: "pub struct NewName { id: u32 }".to_string(),
         query: None,
         grep: Some("pub struct OldName".to_string()),
-        from_line: None, to_line: None, overwrite: true,
+        from_line: None, to_line: None,
     };
     assert!(Mutator::edit_file(root, edit_a, &journal).await.is_success());
     
@@ -60,7 +60,7 @@ async fn test_simulation_refactoring_workflow() {
         // Actually, grep replace of "OldName" might be dangerous globally, but fine here.
         query: None, 
         grep: Some("OldName".to_string()), // Matches line 1
-        from_line: None, to_line: None, overwrite: true,
+        from_line: None, to_line: None,
     };
     // Wait, grep only replaces ONE line. file_b has 2 occurrences? 
     // "use ... OldName" and "fn ... OldName".

@@ -69,7 +69,7 @@ pub struct FileInfo {
 }
 
 /// Available targets in a file (for AST queries)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AvailableTargets {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub functions: Vec<TargetInfo>,
@@ -85,18 +85,7 @@ pub struct AvailableTargets {
     pub list_items: Vec<ListItemInfo>,
 }
 
-impl Default for AvailableTargets {
-    fn default() -> Self {
-        Self {
-            functions: Vec::new(),
-            structs: Vec::new(),
-            classes: Vec::new(),
-            imports: Vec::new(),
-            headers: Vec::new(),
-            list_items: Vec::new(),
-        }
-    }
-}
+
 
 /// Info about a single target (function, struct, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -354,11 +343,11 @@ pub fn levenshtein_distance(a: &str, b: &str) -> usize {
     let mut matrix = vec![vec![0usize; b_len + 1]; a_len + 1];
 
     // Initialize first row and column
-    for i in 0..=a_len {
-        matrix[i][0] = i;
+    for (i, row) in matrix.iter_mut().enumerate().take(a_len + 1) {
+        row[0] = i;
     }
-    for j in 0..=b_len {
-        matrix[0][j] = j;
+    for (j, val) in matrix[0].iter_mut().enumerate().take(b_len + 1) {
+        *val = j;
     }
 
     // Fill the matrix
@@ -415,12 +404,10 @@ pub fn extract_target_name_from_query(query: &str) -> Option<String> {
     ];
 
     for pattern in patterns {
-        if let Ok(re) = regex::Regex::new(pattern) {
-            if let Some(caps) = re.captures(query) {
-                if let Some(m) = caps.get(1) {
-                    return Some(m.as_str().to_string());
-                }
-            }
+        if let Some(m) = regex::Regex::new(pattern).ok()
+            .and_then(|re| re.captures(query))
+            .and_then(|caps| caps.get(1)) {
+            return Some(m.as_str().to_string());
         }
     }
     None

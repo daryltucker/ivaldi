@@ -48,10 +48,12 @@ fn test_smart_append_behavior() {
     
     assert!(!result.is_error);
     
-    // Check advisory
+    // Check advisory (Hammer safety coaching)
     assert!(!result.advisory.is_empty());
-    let has_append = result.advisory.iter().any(|a| a.content.as_str().unwrap_or("").contains("Appended"));
-    assert!(has_append, "Expected advisory about Appending. Got: {:?}", result.advisory);
+    let has_append = result.advisory.iter().any(|a| {
+        a.content.get("issue").map(|v| v == "blind_write_collision").unwrap_or(false)
+    });
+    assert!(has_append, "Expected advisory about blind_write_collision. Got: {:?}", result.advisory);
     
     // Content should be appended
     assert_eq!(fs::read_to_string(&target).unwrap(), "Old ContentNew Content");

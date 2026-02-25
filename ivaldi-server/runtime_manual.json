@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "protocol": "mcp-2024-11-05",
   "generated_at": "build-time",
   "tools": [
@@ -200,7 +200,7 @@
     },
     {
       "name": "write_file",
-      "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count when appending to help you decide if you intended to overwrite. **Usage**: Use for creating new files or adding content. Use `overwrite=true` only when you are certain you want to replace everything.",
+      "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count and provides instructions on 'overwrite: true' when an implicit append occurs.",
       "inputSchema": {
         "properties": {
           "append": {
@@ -223,7 +223,7 @@
           }
         },
         "title": "WriteFileArgs",
-        "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count when appending to help you decide if you intended to overwrite. **Usage**: Use for creating new files or adding content. Use `overwrite=true` only when you are certain you want to replace everything.",
+        "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count and provides instructions on 'overwrite: true' when an implicit append occurs.",
         "type": "object",
         "required": [
           "content",
@@ -246,17 +246,12 @@
             "description": "Regex line matching selector",
             "type": "string"
           },
-          "overwrite": {
-            "description": "Overwrite existing file (default: true)",
-            "default": true,
-            "type": "boolean"
-          },
           "path": {
             "description": "Path to the file to edit",
             "type": "string"
           },
           "query": {
-            "description": "vecq query selector (AST)",
+            "description": "vecq query selector (AST) (e.g., .functions[], .classes[], .structs[], .imports[], .comments[])",
             "type": "string"
           },
           "replacement": {
@@ -379,7 +374,7 @@
             "type": "string"
           },
           "query": {
-            "description": "AST Query (jq-style). If provided, this takes precedence (Power Mode). If omitted, use `category` and `name_pattern` (Friendly Mode).",
+            "description": "AST Query (jq-style) (e.g., .functions[], .classes[], .structs[], .imports[], .comments[]). If provided, this takes precedence (Power Mode). If omitted, use `category` and `name_pattern` (Friendly Mode).",
             "type": "string"
           }
         },

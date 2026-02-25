@@ -76,6 +76,16 @@ pub async fn run_command(args: RunCommandArgs, state: &ServerState) -> anyhow::R
                 ));
             }
 
+            // Buffering Heuristic (Advisory channel)
+            if (args.command.contains("python") || args.args.iter().any(|a| a.ends_with(".py"))) 
+               && result.stdout.is_empty() 
+               && result.exit_code == 0 
+            {
+                advisories.push(AdvisoryMessage::tool_info(serde_json::json!({
+                    "suggestion": "Empty output detected from Python script. If you expected output, ensure stdout is flushed or run python with '-u' for unbuffered output."
+                })));
+            }
+
             Ok(IvaldiResponse::success(result).with_advisories(advisories))
         },
         Err(e) => {

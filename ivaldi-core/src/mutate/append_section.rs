@@ -150,7 +150,6 @@ async fn append_to_markdown_section(
         replacement: format!("\n{}", indented_content),
         from_line: Some(insert_line),
         to_line: Some(insert_line),
-        overwrite: false,
     };
 
     let edit_result = edit_file(root, edit_args, journal).await;
@@ -278,7 +277,6 @@ async fn append_to_code_section(
         replacement: format!("\n{}", indented_content),
         from_line: Some(insert_line),
         to_line: Some(insert_line),
-        overwrite: false,
     };
 
     let edit_result = edit_file(root, edit_args, journal).await;
@@ -312,19 +310,17 @@ fn find_code_section_bounds(json: &Value, section_name: &str, file_type: FileTyp
             // Look for structs first
             if let Some(structs) = json.get("structs").and_then(|v| v.as_array()) {
                 for struct_def in structs {
-                    if let Some(name) = struct_def.get("name").and_then(|v| v.as_str()) {
-                        if name == section_name {
-                            let start_line = struct_def.get("line_start")
-                                .and_then(|v| v.as_u64()).ok_or("Struct missing line_start")? as usize;
-                            let end_line = struct_def.get("line_end")
-                                .and_then(|v| v.as_u64()).ok_or("Struct missing line_end")? as usize;
+                    if struct_def.get("name").and_then(|v| v.as_str()).is_some_and(|n| n == section_name) {
+                        let start_line = struct_def.get("line_start")
+                            .and_then(|v| v.as_u64()).ok_or("Struct missing line_start")? as usize;
+                        let end_line = struct_def.get("line_end")
+                            .and_then(|v| v.as_u64()).ok_or("Struct missing line_end")? as usize;
 
-                            return Ok(SectionBounds {
-                                start_line,
-                                end_line,
-                                section_type: SectionType::CodeStruct,
-                            });
-                        }
+                        return Ok(SectionBounds {
+                            start_line,
+                            end_line,
+                            section_type: SectionType::CodeStruct,
+                        });
                     }
                 }
             }
@@ -332,19 +328,17 @@ fn find_code_section_bounds(json: &Value, section_name: &str, file_type: FileTyp
             // Look for functions
             if let Some(functions) = json.get("functions").and_then(|v| v.as_array()) {
                 for func in functions {
-                    if let Some(name) = func.get("name").and_then(|v| v.as_str()) {
-                        if name == section_name {
-                            let start_line = func.get("line_start")
-                                .and_then(|v| v.as_u64()).ok_or("Function missing line_start")? as usize;
-                            let end_line = func.get("line_end")
-                                .and_then(|v| v.as_u64()).ok_or("Function missing line_end")? as usize;
+                    if func.get("name").and_then(|v| v.as_str()).is_some_and(|n| n == section_name) {
+                        let start_line = func.get("line_start")
+                            .and_then(|v| v.as_u64()).ok_or("Function missing line_start")? as usize;
+                        let end_line = func.get("line_end")
+                            .and_then(|v| v.as_u64()).ok_or("Function missing line_end")? as usize;
 
-                            return Ok(SectionBounds {
-                                start_line,
-                                end_line,
-                                section_type: SectionType::CodeFunction,
-                            });
-                        }
+                        return Ok(SectionBounds {
+                            start_line,
+                            end_line,
+                            section_type: SectionType::CodeFunction,
+                        });
                     }
                 }
             }

@@ -55,11 +55,11 @@ impl ServerState {
                 .filter(|p| p.exists())
         };
 
-        let _ = if let Some(ref path) = policy_path {
+        if let Some(ref path) = policy_path {
             tracing::info!(path = ?path, "Policy: loading from file");
         } else {
             tracing::info!("Policy: no file found, using silent default (ALLOW ALL)");
-        };
+        }
 
         let policy_engine = PolicyEngine::new(policy_path.as_deref()).unwrap_or_else(|e| {
             tracing::error!(

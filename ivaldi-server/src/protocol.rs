@@ -66,17 +66,19 @@ pub fn handle_tools_list(state: &ServerState) -> Result<ivaldi_core::IvaldiRespo
 
     if let Some(ns) = state.tool_namespace() {
         let clean_ns = ns.trim_matches('_');
-        if !clean_ns.is_empty() {
-            if let Some(tools) = manual.get_mut("tools").and_then(|t| t.as_array_mut()) {
-                for tool in tools {
-                    if let Some(name) = tool.get_mut("name") {
-                        if let Some(s) = name.as_str() {
-                            *name = json!(format!("{}_{}", clean_ns, s));
-                        }
-                    }
-                }
+    if let Some(tools) = Some(clean_ns)
+        .filter(|ns| !ns.is_empty())
+        .and_then(|_| manual.get_mut("tools"))
+        .and_then(|t| t.as_array_mut()) {
+        for tool in tools {
+            if let Some(new_name) = tool.get("name")
+                .and_then(|n| n.as_str())
+                .map(|s| json!(format!("{}_{}", clean_ns, s)))
+                && let Some(name_ref) = tool.get_mut("name") {
+                *name_ref = new_name;
             }
         }
+    }
     }
 
     // Return tools list as IvaldiResponse (formatting happens in main.rs)

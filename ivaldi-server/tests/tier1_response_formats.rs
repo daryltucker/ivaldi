@@ -17,12 +17,6 @@ fn test_mcp_initialize_success_format() {
         "capabilities": {"tools": {}}
     });
 
-    let ivaldi_response = IvaldiResponse {
-        content: Some(input_content.clone()),
-        is_error: false,
-        error: None,
-        advisory: vec![],
-    };
 
     // Format using MCP formatter
     let formatted = mcp::format_success_content(input_content.clone());
@@ -44,12 +38,6 @@ fn test_mcp_tools_list_success_format() {
         ]
     });
 
-    let ivaldi_response = IvaldiResponse {
-        content: Some(input_content.clone()),
-        is_error: false,
-        error: None,
-        advisory: vec![],
-    };
 
     // Format using MCP formatter
     let formatted = mcp::format_success_content(input_content.clone());
@@ -63,12 +51,6 @@ fn test_mcp_tools_list_success_format() {
 fn test_mcp_tool_call_success_format() {
     let input_content = json!({"stdout": "Hello World", "exit_code": 0});
 
-    let ivaldi_response = IvaldiResponse {
-        content: Some(input_content.clone()),
-        is_error: false,
-        error: None,
-        advisory: vec![],
-    };
 
     // Format using MCP formatter
     let formatted = mcp::format_success_content(input_content.clone());
@@ -174,7 +156,7 @@ fn test_transport_envelope_logic() {
 
     // MCP mode should get JSON-RPC wrapper
     let mcp_content = json!({"isError": false, "content": [{"type": "text", "text": "test"}]});
-    let mcp_wrapped = json!({
+    let _mcp_wrapped = json!({
         "jsonrpc": "2.0",
         "id": 1,
         "result": mcp_content
@@ -182,7 +164,7 @@ fn test_transport_envelope_logic() {
     // (In transport layer: MCP gets wrapped, OpenAI/OpenCode do not)
 
     // OpenAI mode should NOT get JSON-RPC wrapper
-    let openai_content = json!({"choices": [{"message": {"content": "test"}}]});
+    let _openai_content = json!({"choices": [{"message": {"content": "test"}}]});
     // (In transport layer: stays as openai_content directly)
 
     // This is tested implicitly through the format tests above

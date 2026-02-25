@@ -33,15 +33,14 @@ pub fn write_file(
     }
 
     if target_path.exists() {
-        if !target_path.is_file() {
-             return IvaldiResponse::error("write_error", "Target exists and is not a file");
-        }
-
-        // Smart Default: Append unless --force is specified
+        // === THE HAMMER SAFETY (Blind Write Collision prevention) ===
+        // If file exists and no directive (overwrite/append) is given, we perform a safe >>
+        // instead of a destructive >. This prevents "The Hammer" from accidentally destroying 
+        // history or human work.
         let should_append = args.append || !args.overwrite;
         
         if should_append {
-            // APPEND MODE: Read existing content, append new content
+            // SAFE APPEND MODE (cat >>)
             action_type = ActionType::Update;
             
             let existing_content = match fs::read_to_string(&target_path) {
@@ -65,22 +64,26 @@ pub fn write_file(
             // Combine existing + new content
             final_content = format!("{}{}", existing_content, content);
             
-            // Advisory: Show pre-append state
+            // ADVISORY (The Coaching Channel):
             if !args.append {
-                // Implicit append (default behavior)
-                advisories.push(AdvisoryMessage::tool_info(format!(
-                    "File existed. Appended to end. Original: {} lines, {} bytes. Use --force to overwrite instead.",
-                    lines_before, bytes_before
-                )));
+                // Implicit append (safety fallback) - Loud Warning for Blind Writes
+                advisories.push(AdvisoryMessage::tool_warn(serde_json::json!({
+                    "issue": "blind_write_collision",
+                    "message": "Whoa! File existed and you didn't specify 'overwrite: true'.",
+                    "action_taken": "I used append (>>) instead of overwrite (>) to prevent data loss.",
+                    "suggestion": "If you genuinely meant to DESTROY the old file and write a fresh one, set 'overwrite: true'.",
+                    "stats": { "original_lines": lines_before, "original_bytes": bytes_before }
+                })));
             } else {
-                // Explicit append flag
+                // Explicit append flag - Info only
                 advisories.push(AdvisoryMessage::tool_info(format!(
                     "Appended to end. Original: {} lines, {} bytes.",
                     lines_before, bytes_before
                 )));
             }
         } else {
-            // OVERWRITE MODE: Backup -> Overwrite
+            // OVERWRITE MODE (The Hammer - cat >)
+            // Agent explicitly asked to destroy the file contents and write fresh.
             action_type = ActionType::Update;
             
             // BACKUP (using root)

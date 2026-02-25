@@ -86,10 +86,7 @@ pub async fn toggle_checkbox(
 
     if matches.is_empty() {
         // No matches - provide helpful context
-        let available_checkboxes = match get_all_checkboxes(&content, &json) {
-            Ok(cb) => cb,
-            Err(_) => Vec::new(),
-        };
+        let available_checkboxes = get_all_checkboxes(&content, &json).unwrap_or_default();
         return IvaldiResponse::from_error(IvaldiError::Query("No checkbox matched pattern".into()))
             .with_advisory(crate::advisory::AdvisoryMessage::adt_suggest(
                 serde_json::json!({
@@ -142,11 +139,10 @@ pub async fn toggle_checkbox(
     let edit_args = EditFileArgs {
         path: args.path.clone(),
         query: None,
-        grep: Some(format!("^{}$", regex::escape(&original_line.trim()))),
+        grep: Some(format!("^{}$", regex::escape(original_line.trim()))),
         replacement: replacement_line.clone(),
         from_line: None,
         to_line: None,
-        overwrite: false,
     };
 
     let edit_result = edit_file(root, edit_args, journal).await;
@@ -161,10 +157,7 @@ pub async fn toggle_checkbox(
         }
     } else {
         // Success! Return detailed result
-        let all_checkboxes = match get_all_checkboxes(&content, &json) {
-            Ok(cb) => cb,
-            Err(_) => Vec::new(),
-        };
+        let all_checkboxes = get_all_checkboxes(&content, &json).unwrap_or_default();
 
         let result = CheckboxResult {
             path: args.path,
@@ -206,19 +199,17 @@ fn find_matching_checkboxes(content: &str, json: &Value, pattern: &str) -> Resul
                 item.get("task").and_then(|v| v.as_bool()),
                 item.get("checked").and_then(|v| v.as_bool()),
                 item.get("line_start").and_then(|v| v.as_u64()),
-            ) {
-                if task && content_text.to_lowercase().contains(&pattern.to_lowercase()) {
-                    let line_idx = (line_start as usize).saturating_sub(1); // Convert to 0-based
-                    if line_idx < lines.len() {
-                        let full_line = lines[line_idx].to_string();
+            ) && task && content_text.to_lowercase().contains(&pattern.to_lowercase()) {
+                let line_idx = (line_start as usize).saturating_sub(1); // Convert to 0-based
+                if line_idx < lines.len() {
+                    let full_line = lines[line_idx].to_string();
 
-                        matches.push(CheckboxMatch {
-                            line: line_start as usize,
-                            content: content_text.to_string(),
-                            current_state: checked,
-                            full_line,
-                        });
-                    }
+                    matches.push(CheckboxMatch {
+                        line: line_start as usize,
+                        content: content_text.to_string(),
+                        current_state: checked,
+                        full_line,
+                    });
                 }
             }
         }
@@ -239,22 +230,20 @@ fn get_all_checkboxes(content: &str, json: &Value) -> Result<Vec<CheckboxMatch>,
                 item.get("task").and_then(|v| v.as_bool()),
                 item.get("checked").and_then(|v| v.as_bool()),
                 item.get("line_start").and_then(|v| v.as_u64()),
-            ) {
-                if task {
-                    let line_idx = (line_start as usize).saturating_sub(1); // Convert to 0-based
-                    let full_line = if line_idx < lines.len() {
-                        lines[line_idx].to_string()
-                    } else {
-                        format!("- [{}] {}", if checked { "x" } else { " " }, content_text)
-                    };
+            ) && task {
+                let line_idx = (line_start as usize).saturating_sub(1); // Convert to 0-based
+                let full_line = if line_idx < lines.len() {
+                    lines[line_idx].to_string()
+                } else {
+                    format!("- [{}] {}", if checked { "x" } else { " " }, content_text)
+                };
 
-                    checkboxes.push(CheckboxMatch {
-                        line: line_start as usize,
-                        content: content_text.to_string(),
-                        current_state: checked,
-                        full_line,
-                    });
-                }
+                checkboxes.push(CheckboxMatch {
+                    line: line_start as usize,
+                    content: content_text.to_string(),
+                    current_state: checked,
+                    full_line,
+                });
             }
         }
     }
@@ -305,11 +294,11 @@ fn levenshtein_distance(a: &str, b: &str) -> usize {
 
     let mut matrix = vec![vec![0usize; b_len + 1]; a_len + 1];
 
-    for i in 0..=a_len {
-        matrix[i][0] = i;
+    for (i, row) in matrix.iter_mut().enumerate().take(a_len + 1) {
+        row[0] = i;
     }
-    for j in 0..=b_len {
-        matrix[0][j] = j;
+    for (j, val) in matrix[0].iter_mut().enumerate().take(b_len + 1) {
+        *val = j;
     }
 
     for i in 1..=a_len {

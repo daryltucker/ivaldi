@@ -11,10 +11,10 @@ use serde_json::Value;
 /// This includes explicit client type declarations and environment indicators.
 pub fn detect_openai_request(request: &Value) -> bool {
     // Check for OpenAI-style client hints
-    if let Some(meta) = request.get("_meta") {
-        if let Some(client_type) = meta.get("client_type").and_then(|v| v.as_str()) {
-            return client_type == "openai";
-        }
+    if let Some(client_type) = request.get("_meta")
+        .and_then(|meta| meta.get("client_type"))
+        .and_then(|v| v.as_str()) {
+        return client_type == "openai";
     }
 
     // Additional OpenAI detection could be added here

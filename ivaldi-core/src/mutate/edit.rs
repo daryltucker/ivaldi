@@ -90,7 +90,7 @@ pub async fn edit_file(
     let write_args = WriteFileArgs {
         path: args.path,
         content: new_content,
-        overwrite: args.overwrite,
+        overwrite: true, // ALWAYS overwrite here, as edit_file logic handles the merge
         append: false,
     };
 
@@ -136,7 +136,7 @@ pub async fn edit_files(
         prepared_writes.push(WriteFileArgs {
             path: edit_arg.path,
             content: new_content,
-            overwrite: edit_arg.overwrite,
+            overwrite: true, // ALWAYS overwrite, we merged the content ourselves
             append: false,
         });
     }

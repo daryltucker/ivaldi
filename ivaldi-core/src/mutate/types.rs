@@ -8,8 +8,7 @@ use std::path::PathBuf;
 /// **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end.
 /// **Safety**:
 /// - **Backup First**: Original content backed up to `.ivaldi/backups/`.
-/// - **Advisory Richness**: Reveals original line/byte count when appending to help you decide if you intended to overwrite.
-///   **Usage**: Use for creating new files or adding content. Use `overwrite=true` only when you are certain you want to replace everything.
+/// - **Advisory Richness**: Reveals original line/byte count and provides instructions on 'overwrite: true' when an implicit append occurs.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WriteFileArgs {
     /// Path to the file to write
@@ -48,7 +47,7 @@ pub struct EditFileArgs {
     /// Replacement content
     pub replacement: String,
 
-    /// vecq query selector (AST)
+    /// vecq query selector (AST) (e.g., .functions[], .classes[], .structs[], .imports[], .comments[])
     pub query: Option<String>,
 
     /// Regex line matching selector
@@ -59,10 +58,6 @@ pub struct EditFileArgs {
 
     /// End line (1-indexed)
     pub to_line: Option<usize>,
-
-    /// Overwrite existing file (default: true)
-    #[serde(default = "default_true")]
-    pub overwrite: bool,
 }
 
 /// Arguments for the edit_files tool
@@ -103,6 +98,4 @@ pub struct RenameSymbolArgs {
 fn default_false() -> bool {
     false
 }
-fn default_true() -> bool {
-    true
-}
+

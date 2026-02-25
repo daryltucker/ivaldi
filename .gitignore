@@ -22,6 +22,7 @@
 !Cargo.toml
 !LICENSE
 !LICENSE.md
+!CHANGELOG.md
 !requirements.txt
 !Dockerfile
 !Makefile

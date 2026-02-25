@@ -29,19 +29,19 @@ pub type RichEditResult = Result<String, RichEditError>;
 #[derive(Debug, thiserror::Error)]
 pub enum RichEditError {
     #[error("No nodes matched query")]
-    NoMatch(NoMatchContext),
+    NoMatch(Box<NoMatchContext>),
 
     #[error("Ambiguous edit: multiple nodes matched query")]
-    Ambiguous(AmbiguousContext),
+    Ambiguous(Box<AmbiguousContext>),
 
     #[error("Invalid line range: {0}")]
     InvalidLineRange(String),
 
     #[error("No line matched grep pattern")]
-    GrepNoMatch(GrepNoMatchContext),
+    GrepNoMatch(Box<GrepNoMatchContext>),
 
     #[error("Ambiguous edit: multiple lines matched grep pattern")]
-    GrepAmbiguous(GrepAmbiguousContext),
+    GrepAmbiguous(Box<GrepAmbiguousContext>),
 
     #[error("Node missing line_start")]
     MissingLineStart,
@@ -102,11 +102,11 @@ async fn edit_node(
     
     if results.is_empty() {
         let context = build_no_match_context(query, file_type, content, &json).await?;
-        return Err(RichEditError::NoMatch(context));
+        return Err(RichEditError::NoMatch(Box::new(context)));
     }
     if results.len() > 1 {
         let context = build_ambiguous_context(query, file_type, content, &json, &results).await?;
-        return Err(RichEditError::Ambiguous(context));
+        return Err(RichEditError::Ambiguous(Box::new(context)));
     }
     
     let node = &results[0];
@@ -428,7 +428,7 @@ fn edit_lines(
 ) -> RichEditResult {
     let has_trailing_newline = content.ends_with('\n');
     let lines: Vec<&str> = content.lines().collect();
-    if start < 1 || start > lines.len() || end < start || end > lines.len() {
+    if start < 1 || start > lines.len() + 1 || end < start.saturating_sub(1) || end > lines.len() {
         return Err(RichEditError::InvalidLineRange(
             format!("Invalid line range: {}-{} (total lines: {})", start, end, lines.len())
         ));
@@ -495,7 +495,7 @@ fn edit_grep(
             similar_lines: find_similar_lines(pattern, content),
         };
 
-        return Err(RichEditError::GrepNoMatch(context));
+        return Err(RichEditError::GrepNoMatch(Box::new(context)));
     }
 
     if matches.len() > 1 {
@@ -523,7 +523,7 @@ fn edit_grep(
             matches: match_infos,
         };
 
-        return Err(RichEditError::GrepAmbiguous(context));
+        return Err(RichEditError::GrepAmbiguous(Box::new(context)));
     }
 
     // Single match

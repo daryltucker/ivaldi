@@ -1,5 +1,5 @@
 # HUMAN MANUAL: ivaldi
-Version: 0.1.0
+Version: 0.1.1
 
 ## PHILOSOPHY
 `ivaldi` is the scalpel and hammer for file operations. It is designed to be **safe**, **precise**, and **composable**.

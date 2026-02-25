@@ -171,7 +171,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    info!("Status: Operational (Phase 4: Session Management) - OpenCode Compatible");
+    info!("Status: Operational (v0.1.1) - OpenCode Compatible");
     if let ivaldi_core::execution::IsolationMode::Bubblewrap = config.safety.isolation_mode {
         info!(
             fs_isolation = config.safety.ro_bind_root,
@@ -199,7 +199,7 @@ async fn main() -> anyhow::Result<()> {
     if let Ok(mode) = std::env::var("IVALDI_RESPONSE_MODE") {
         info!("🌍 ENV IVALDI_RESPONSE_MODE: {}", mode);
     } else {
-        info!("🌍 ENV IVALDI_RESPONSE_MODE: not set (defaulting to MCP mode)");
+        info!("🌍 ENV IVALDI_RESPONSE_MODE: not set (defaulting to AUTO mode)");
     }
 
     // Log all IVALDI_* environment variables for debugging
@@ -394,11 +394,16 @@ async fn main() -> anyhow::Result<()> {
 
                                      // ALL response modes use JSON-RPC envelope for stdio MCP transport
                                      // The response mode only affects what goes INSIDE the result field
-                                     let response_to_send = json!({
-                                         "jsonrpc": "2.0",
-                                         "id": id,
-                                         "result": formatted_result
-                                     });
+                                     // DEFENSIVE: Bypass wrapping if the result is already a full JSON-RPC envelope
+                                     let response_to_send = if formatted_result.get("jsonrpc").is_some() {
+                                         formatted_result
+                                     } else {
+                                         json!({
+                                             "jsonrpc": "2.0",
+                                             "id": id,
+                                             "result": formatted_result
+                                         })
+                                     };
 
                                     let mut response_string = serde_json::to_string(&response_to_send).unwrap();
                                     response_string.push('\n');

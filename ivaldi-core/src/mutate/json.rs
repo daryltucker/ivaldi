@@ -25,8 +25,6 @@ pub struct EditJsonArgs {
     pub selector: String,
     /// Operation to perform
     pub operation: JsonOperation,
-    /// Whether to overwrite the file (false = append if not exists)
-    pub overwrite: bool,
 }
 
 /// Types of JSON editing operations
@@ -82,7 +80,7 @@ pub fn edit_json(root: &Path, args: EditJsonArgs, journal: &Journal) -> IvaldiRe
     let write_args = WriteFileArgs {
         path: args.path,
         content: new_content,
-        overwrite: args.overwrite,
+        overwrite: true, // ALWAYS overwrite here as we have semantically merged the state
         append: false,
     };
 

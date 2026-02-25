@@ -111,14 +111,11 @@ fn flatten_top_level_union(schema: &mut serde_json::Value) {
                         if let Some(variant_obj) = variant.as_object() {
                             // Extract action enum value from this variant
                             if let Some(props) = variant_obj.get("properties").and_then(|p| p.as_object()) {
-                                if let Some(action_prop) = props.get("action") {
-                                    if let Some(enum_vals) = action_prop.get("enum").and_then(|e| e.as_array()) {
-                                        for val in enum_vals {
-                                            if let Some(s) = val.as_str() {
-                                                if !action_enum_values.contains(&s.to_string()) {
-                                                    action_enum_values.push(s.to_string());
-                                                }
-                                            }
+                                if let Some(enum_vals) = props.get("action").and_then(|p| p.get("enum")).and_then(|e| e.as_array()) {
+                                    for val in enum_vals {
+                                        if let Some(s) = val.as_str()
+                                            && !action_enum_values.contains(&s.to_string()) {
+                                            action_enum_values.push(s.to_string());
                                         }
                                     }
                                 }

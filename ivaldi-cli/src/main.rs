@@ -135,7 +135,7 @@ fn main() -> anyhow::Result<()> {
             let response = Mutator::write_file(&root, args, &journal);
             print_write_result(&response, cli.json);
         }
-        Some(Commands::Edit { path, query, grep, from, to, replacement, force }) => {
+        Some(Commands::Edit { path, query, grep, from, to, replacement }) => {
 
             let journal_path = root.join(".ivaldi/journal.jsonl");
             let journal = match Journal::open(&journal_path) {
@@ -153,7 +153,6 @@ fn main() -> anyhow::Result<()> {
                 grep,
                 from_line: from,
                 to_line: to,
-                overwrite: force,
             };
             
             // Edit is async
@@ -179,7 +178,7 @@ fn main() -> anyhow::Result<()> {
         }
         Some(Commands::Status) => {
             println!("ivaldi v{}", env!("CARGO_PKG_VERSION"));
-            println!("Status: Operational (Phase 2.5)");
+            println!("Status: Operational (v0.1.1)");
             println!("Modules: Navigation, Observation, Sensors, Mutation (Undo)");
             println!("Project Root: {:?}", root);
             if let Some(config) = &cli.config {

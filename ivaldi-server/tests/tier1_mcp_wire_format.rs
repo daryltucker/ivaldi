@@ -12,8 +12,12 @@ use std::process::{Command, Stdio};
 
 /// Helper: spawn ivaldi-server and send a request, return the response
 fn send_mcp_request(request: &Value) -> Value {
+    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("sessions.toml");
+
     let mut child = Command::new("ivaldi-server")
         .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .env("IVALDI_CONFIG", config_path.to_str().unwrap())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -64,7 +68,7 @@ fn test_mcp_initialize_returns_jsonrpc_envelope() {
             },
             "initializationOptions": {
                 "session_id": "test-session",
-                "project_root": "../"
+                "project_root": env!("CARGO_MANIFEST_DIR")
             }
         }
     });
@@ -129,10 +133,6 @@ fn test_mcp_tools_list_returns_jsonrpc_envelope() {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
             "clientInfo": { "name": "test", "version": "1.0" },
-            "initializationOptions": {
-                "session_id": "test-session-tools-list",
-                "project_root": env!("CARGO_MANIFEST_DIR")
-            },
             "initializationOptions": {
                 "session_id": "test-session-tools-list",
                 "project_root": env!("CARGO_MANIFEST_DIR")
