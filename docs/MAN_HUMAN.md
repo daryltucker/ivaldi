@@ -1,5 +1,5 @@
 # HUMAN MANUAL: ivaldi
-Version: 0.1.0
+Version: 0.1.1
 
 ## PHILOSOPHY
 `ivaldi` is the scalpel and hammer for file operations. It is designed to be **safe**, **precise**, and **composable**.
@@ -22,6 +22,18 @@ Find files without the noise.
 ```bash
 ivaldi find src "*.rs"      # Find Rust files (respects .gitignore)
 ivaldi find . --depth 2     # Shallow search
+```
+
+### Microscope (`search_code`)
+Search code structure with AST queries.
+```bash
+# Find all public functions
+ivaldi search src --query '.functions[] | select(.visibility == "pub")'
+
+# Find a specific function
+ivaldi search src --category functions --name-pattern ".*main.*"
+
+# Note: Complex queries timeout after 30s. Use IVALDI_SEARCH_TIMEOUT=60 for large codebases
 ```
 
 ### Telescope (`read`)

@@ -31,6 +31,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository = "https://github.com/daryltucker/ivaldi"
 
 [dependencies]
 serde.workspace = true
@@ -55,8 +56,11 @@ strsim = "0.11.1"
 libc = "0.2.180"
 toml = "0.9.11"
 git2 = "0.19"
-systemd = "0.10"
 cedar-policy = "4.8.2"
 
 [dev-dependencies]
 tempfile = "3.24.0"
+
+# Linux-only: systemd crate requires libsystemd
+[target.'cfg(target_os = "linux")'.dependencies]
+systemd = "0.10"

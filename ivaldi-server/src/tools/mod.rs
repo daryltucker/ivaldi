@@ -6,10 +6,12 @@ use serde_json::Value;
 use ivaldi_core::navigate::{FsNavigator, Navigator, FindFilesArgs};
 use ivaldi_core::observe::{
     FsObserver, Observer, ReadFileArgs, ReadFilesArgs, Analyzer, AnalyzeDirArgs, AnalyzeFileArgs, 
-    SearchCodeArgs, GitReadArgs, ReadSyslogsArgs
+    SearchCodeArgs, GitReadArgs
 };
+#[cfg(target_os = "linux")]
+use ivaldi_core::observe::ReadSyslogsArgs;
 use ivaldi_core::list::{FsLister, Lister, ListDirArgs};
-use ivaldi_core::mutate::{Mutator, WriteFileArgs, EditFileArgs};
+use ivaldi_core::mutate::{Mutator, WriteFileArgs, EditFileArgs, EditJsonArgs, ToggleCheckboxArgs, AppendToSectionArgs};
 use ivaldi_core::undo::{Journal, Undoer, UndoArgs};
 use ivaldi_core::session::types::{SessionInitArgs, SessionListArgs, SessionGetArgs, SessionUpdateArgs};
 use ivaldi_core::lifecycle::project_root::find_project_root;
@@ -28,7 +30,18 @@ pub enum ToolError {
 
 /// Execute a tool by name (Requires State for Session tools)
 pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerState) -> Result<Value, ToolError> {
-    match name {
+    // Strip namespace prefix if present
+    let stripped_name = if let Some(ns) = state.tool_namespace() {
+        let clean_ns = ns.trim_matches('_');
+        if !clean_ns.is_empty() {
+            name.strip_prefix(&(clean_ns.to_string() + "_")).unwrap_or(name)
+        } else {
+            name
+        }
+    } else {
+        name
+    };
+    match stripped_name {
         "find_files" => {
             let mut args: FindFilesArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
@@ -116,6 +129,45 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             
             Ok(serde_json::to_value(response).unwrap())
         },
+        "edit_json" => {
+            let args: EditJsonArgs = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+
+            // Lifecycle extraction
+            let start = args.path.parent().unwrap_or(&args.path);
+            let root = find_project_root(start);
+            let journal_path = root.join(".ivaldi/journal.jsonl");
+            let journal = Journal::open(&journal_path).map_err(|e| ToolError::Execution(format!("Journal error: {}", e)))?;
+
+            let response = Mutator::edit_json(&root, args, &journal);
+            Ok(serde_json::to_value(response).unwrap())
+        },
+        "toggle_checkbox" => {
+            let args: ToggleCheckboxArgs = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+
+            // Lifecycle extraction
+            let start = args.path.parent().unwrap_or(&args.path);
+            let root = find_project_root(start);
+            let journal_path = root.join(".ivaldi/journal.jsonl");
+            let journal = Journal::open(&journal_path).map_err(|e| ToolError::Execution(format!("Journal error: {}", e)))?;
+
+            let response = Mutator::toggle_checkbox(&root, args, &journal).await;
+            Ok(serde_json::to_value(response).unwrap())
+        },
+        "append_to_section" => {
+            let args: AppendToSectionArgs = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+
+            // Lifecycle extraction
+            let start = args.path.parent().unwrap_or(&args.path);
+            let root = find_project_root(start);
+            let journal_path = root.join(".ivaldi/journal.jsonl");
+            let journal = Journal::open(&journal_path).map_err(|e| ToolError::Execution(format!("Journal error: {}", e)))?;
+
+            let response = Mutator::append_to_section(&root, args, &journal).await;
+            Ok(serde_json::to_value(response).unwrap())
+        },
         "undo" => {
              let args: UndoArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
@@ -172,8 +224,22 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
         "search_code" => {
             let args: SearchCodeArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
-            
-            let response = ivaldi_core::observe::search_code(args).await;
+
+            // Add configurable timeout protection to prevent client timeouts/crashes
+            // IVALDI_SEARCH_TIMEOUT: Timeout for code search operations in seconds (default: 30)
+            let timeout_secs = std::env::var("IVALDI_SEARCH_TIMEOUT")
+                .unwrap_or_else(|_| "30".to_string())
+                .parse::<u64>()
+                .unwrap_or(30);
+
+            let response = tokio::time::timeout(
+                std::time::Duration::from_secs(timeout_secs),
+                ivaldi_core::observe::search_code(args)
+            ).await
+            .map_err(|_| ToolError::Execution(
+                format!("Search operation timed out after {} seconds. Try narrowing your search scope or increase IVALDI_SEARCH_TIMEOUT.", timeout_secs)
+            ))?;
+
             Ok(serde_json::to_value(response).unwrap())
         },
         "git_read" => {
@@ -181,6 +247,7 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             let project_root = state.get_session().map(|s| s.root);
             Ok(serde_json::to_value(ivaldi_core::observe::git::git_read(args, project_root.as_ref()).await).unwrap())
         },
+        #[cfg(target_os = "linux")]
         "read_syslogs" => {
             let args: ReadSyslogsArgs = serde_json::from_value(args).map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
             Ok(serde_json::to_value(ivaldi_core::observe::syslogs::read_syslogs(args).await).unwrap())

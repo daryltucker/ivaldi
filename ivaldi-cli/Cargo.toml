@@ -27,6 +27,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository = "https://github.com/daryltucker/ivaldi"
 
 [[bin]]
 name = "ivaldi"
@@ -43,3 +44,11 @@ tracing-subscriber.workspace = true
 tokio.workspace = true
 vecdb-common.workspace = true
 colored = "3.0.0"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/ivaldi-{ target }.tar.gz"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/ivaldi-{ target }.zip"
+pkg-fmt = "zip"

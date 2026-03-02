@@ -11,6 +11,8 @@
 | `Q:AST` | `search_code` | `query=".fn[]|select(.pub)"` | `[Node]` | HIGH |
 | `Q:LZ` | `search_code` | `cat="fn"`, `name="main"` | `[Node]` | MED |
 | `GIT` | `git_read` | `action="blame|log|diff"` | `GitObj` | MED |
+
+> **⚠️ Note**: AST queries may timeout on large codebases. Use `IVALDI_SEARCH_TIMEOUT=60` for complex searches.
 | `LOGS` | `read_syslogs` | `service="foo"`, `level="err"` | `[Log]` | LOW |
 
 ## 2. MUTATION (STATE-CHANGE)

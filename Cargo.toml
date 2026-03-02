@@ -26,11 +26,11 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["Daryl Tucker"]
 license = "MIT"
-repository = "https://github.com/daryltucker/ivaldi-mcp"
+repository = "https://github.com/daryltucker/ivaldi"
 
 [workspace.dependencies]
 # Serialization
@@ -57,9 +57,16 @@ ignore = "0.4.25"  # .gitignore/.aiignore parsing
 # Logging
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
-tracing-journald = "0.3"
 
 # Internal
 ivaldi-core = { path = "ivaldi-core" } # Correct for local member
-vecdb-common = { git = "https://github.com/daryltucker/vecdb", version = "0.0.9" }
-vecq = { git = "https://github.com/daryltucker/vecdb", version = "0.0.9" }
+vecdb-common = { git = "https://github.com/daryltucker/vecdb", tag = "v1.0.0" }
+vecq = { git = "https://github.com/daryltucker/vecdb", tag = "v1.0.0" }
+
+[workspace.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/ivaldi-{ target }.tar.gz"
+pkg-fmt = "tgz"
+
+[workspace.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/ivaldi-{ target }.zip"
+pkg-fmt = "zip"

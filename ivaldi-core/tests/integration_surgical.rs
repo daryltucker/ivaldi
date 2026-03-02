@@ -33,7 +33,6 @@ async fn test_full_scalpel_workflow() {
         grep: None,
         from_line: None,
         to_line: None,
-        overwrite: true,
     };
 
     let edit_resp = Mutator::edit_file(dir.path(), edit_args, &journal).await;

@@ -9,11 +9,13 @@ use crate::state::ServerState;
 use crate::tools;
 use crate::tools::middleware::Middleware;
 
+
+
 /// Handle MCP initialize request
 pub fn handle_initialize(
     request: &Value,
     state: &ServerState,
-) -> Result<Value, String> {
+) -> Result<ivaldi_core::IvaldiResponse<Value>, String> {
     let params = request.get("params").unwrap_or(&Value::Null);
     
     // --- SESSION HOOK ---
@@ -33,8 +35,8 @@ pub fn handle_initialize(
         .map(|session| {
             info!(session_id = %session.id, root = ?session.root, "Session Attached");
             state.set_session(session.clone());
-            
-            json!({
+
+            let init_data = json!({
                 "protocolVersion": "2024-11-05",
                 "serverInfo": {
                     "name": "ivaldi-mcp",
@@ -43,18 +45,51 @@ pub fn handle_initialize(
                 "capabilities": {
                     "tools": {}
                 },
-                "session": session 
-            })
+                "session": session
+            });
+
+            ivaldi_core::IvaldiResponse {
+                content: Some(init_data),
+                is_error: false,
+                error: None,
+                advisory: vec![],
+            }
         })
 }
 
 /// Handle MCP tools/list request
-pub fn handle_tools_list() -> Result<Value, String> {
-    // Return pre-computed JSON from manual
+pub fn handle_tools_list(state: &ServerState) -> Result<ivaldi_core::IvaldiResponse<Value>, String> {
+    // Return pre-computed JSON from manual, with optional namespace prefixing
     const MANUAL_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime_manual.json"));
-    let manual: Value = serde_json::from_str(MANUAL_JSON)
+    let mut manual: Value = serde_json::from_str(MANUAL_JSON)
         .map_err(|e| format!("Failed to parse manual: {}", e))?;
-    Ok(json!({ "tools": manual["tools"] }))
+
+    if let Some(ns) = state.tool_namespace() {
+        let clean_ns = ns.trim_matches('_');
+    if let Some(tools) = Some(clean_ns)
+        .filter(|ns| !ns.is_empty())
+        .and_then(|_| manual.get_mut("tools"))
+        .and_then(|t| t.as_array_mut()) {
+        for tool in tools {
+            if let Some(new_name) = tool.get("name")
+                .and_then(|n| n.as_str())
+                .map(|s| json!(format!("{}_{}", clean_ns, s)))
+                && let Some(name_ref) = tool.get_mut("name") {
+                *name_ref = new_name;
+            }
+        }
+    }
+    }
+
+    // Return tools list as IvaldiResponse (formatting happens in main.rs)
+    let tools_list = json!({ "tools": manual["tools"] });
+
+    Ok(ivaldi_core::IvaldiResponse {
+        content: Some(tools_list),
+        is_error: false,
+        error: None,
+        advisory: vec![],
+    })
 }
 
 /// Handle MCP tools/call request
@@ -63,10 +98,22 @@ pub async fn handle_tools_call(
     state: &ServerState,
     cli_args: &ivaldi_server::Args,
     middleware: &std::sync::Arc<Middleware>,
-) -> Result<Value, String> {
+) -> Result<ivaldi_core::IvaldiResponse<Value>, String> {
     let params = request.get("params").unwrap_or(&Value::Null);
     let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let args = params.get("arguments").cloned().unwrap_or(json!({}));
+    
+    // Strip namespace prefix if present
+    let stripped_name = if let Some(ns) = state.tool_namespace() {
+        let clean_ns = ns.trim_matches('_');
+        if !clean_ns.is_empty() {
+            name.strip_prefix(&(clean_ns.to_string() + "_")).unwrap_or(name)
+        } else {
+            name
+        }
+    } else {
+        name
+    };
     
     // --- CONVERSATION TRACKING ---
     // Priority: CLI args > ENV vars > IDE metadata
@@ -114,7 +161,7 @@ pub async fn handle_tools_call(
     // Wrap closure
     let state_clone = state.clone();
     let tool_future_closure = || async move {
-         match tools::execute_tool(name, args.clone(), &state_clone).await {
+         match tools::execute_tool(stripped_name, args.clone(), &state_clone).await {
             Ok(val) => {
                 serde_json::from_value::<ivaldi_core::IvaldiResponse<serde_json::Value>>(val).unwrap_or_else(|e| {
                     ivaldi_core::IvaldiResponse::from_error(ivaldi_core::error::IvaldiError::Internal(format!("Serialization error: {}", e)))
@@ -130,30 +177,10 @@ pub async fn handle_tools_call(
     // Log tool completion
     let duration = start_time.elapsed();
     info!(tool = name, duration_ms = duration.as_millis(), "Tool completed");
-    
-    // TRANSFORM TO STRICT MCP:
-    // Every Tool Result MUST have a 'content' array of items.
-    // If the tool returned a raw value, we wrap it into a Text content item.
-    let mut final_value = serde_json::to_value(response).unwrap();
-    
-    if let Some(content_val) = final_value.get_mut("content") {
-        if !content_val.is_null() {
-            // Take the value and wrap it in standard MCP Text Content
-            let raw_data = content_val.take();
-            let stringified = if raw_data.is_string() {
-                raw_data.as_str().unwrap().to_string()
-            } else {
-                serde_json::to_string_pretty(&raw_data).unwrap()
-            };
-            
-            *content_val = json!([
-                { "type": "text", "text": stringified }
-            ]);
-        }
-    } else if !final_value.get("isError").and_then(|v| v.as_bool()).unwrap_or(false) {
-        // Successful but no content? MCP spec prefers an empty array over null
-        final_value["content"] = json!([]);
-    }
-    
-    Ok(final_value)
+
+    // Return the raw IvaldiResponse (formatting happens in main.rs)
+    Ok(response)
 }
+
+
+

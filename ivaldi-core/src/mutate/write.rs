@@ -33,15 +33,18 @@ pub fn write_file(
     }
 
     if target_path.exists() {
-        if !target_path.is_file() {
-             return IvaldiResponse::error("write_error", "Target exists and is not a file");
+        let should_fail_on_collision = !args.overwrite && !args.append;
+        
+        if should_fail_on_collision {
+            // THE HAMMER SAFETY: Fail if ambiguous
+            return IvaldiResponse::from_error(IvaldiError::WriteCollision(format!(
+                "File '{}' exists. Set 'overwrite: true' to destroy or 'append: true' to concatenate.",
+                target_path.display()
+            )));
         }
 
-        // Smart Default: Append unless --force is specified
-        let should_append = args.append || !args.overwrite;
-        
-        if should_append {
-            // APPEND MODE: Read existing content, append new content
+        if args.append {
+            // SAFE APPEND MODE (cat >>)
             action_type = ActionType::Update;
             
             let existing_content = match fs::read_to_string(&target_path) {
@@ -65,22 +68,14 @@ pub fn write_file(
             // Combine existing + new content
             final_content = format!("{}{}", existing_content, content);
             
-            // Advisory: Show pre-append state
-            if !args.append {
-                // Implicit append (default behavior)
-                advisories.push(AdvisoryMessage::tool_info(format!(
-                    "File existed. Appended to end. Original: {} lines, {} bytes. Use --force to overwrite instead.",
-                    lines_before, bytes_before
-                )));
-            } else {
-                // Explicit append flag
-                advisories.push(AdvisoryMessage::tool_info(format!(
-                    "Appended to end. Original: {} lines, {} bytes.",
-                    lines_before, bytes_before
-                )));
-            }
+            // ADVISORY (The Coaching Channel):
+            advisories.push(AdvisoryMessage::tool_info(format!(
+                "Appended to end. Original: {} lines, {} bytes.",
+                lines_before, bytes_before
+            )));
         } else {
-            // OVERWRITE MODE: Backup -> Overwrite
+            // OVERWRITE MODE (The Hammer - cat >)
+            // Agent explicitly asked to destroy the file contents and write fresh.
             action_type = ActionType::Update;
             
             // BACKUP (using root)

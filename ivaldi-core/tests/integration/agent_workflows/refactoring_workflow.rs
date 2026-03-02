@@ -1,8 +1,9 @@
-use ivaldi_core::mutate::{Mutator, WriteFileArgs, EditFileArgs};
+use ivaldi_core::mutate::{Mutator, WriteFileArgs, EditFileArgs, RenameSymbolArgs};
 
 use ivaldi_core::undo::{Journal, Undoer};
 use tempfile::TempDir;
 use std::fs;
+
 
 #[tokio::test]
 async fn test_simulation_refactoring_workflow() {
@@ -46,7 +47,7 @@ async fn test_simulation_refactoring_workflow() {
         replacement: "pub struct NewName { id: u32 }".to_string(),
         query: None,
         grep: Some("pub struct OldName".to_string()),
-        from_line: None, to_line: None, overwrite: true,
+        from_line: None, to_line: None,
     };
     assert!(Mutator::edit_file(root, edit_a, &journal).await.is_success());
     
@@ -59,7 +60,7 @@ async fn test_simulation_refactoring_workflow() {
         // Actually, grep replace of "OldName" might be dangerous globally, but fine here.
         query: None, 
         grep: Some("OldName".to_string()), // Matches line 1
-        from_line: None, to_line: None, overwrite: true,
+        from_line: None, to_line: None,
     };
     // Wait, grep only replaces ONE line. file_b has 2 occurrences? 
     // "use ... OldName" and "fn ... OldName".
@@ -103,4 +104,50 @@ async fn test_simulation_refactoring_workflow() {
     assert_eq!(fs::read_to_string(&file_a).unwrap(), content_a);
     assert_eq!(fs::read_to_string(&file_b).unwrap(), content_b);
     assert_eq!(fs::read_to_string(&file_main).unwrap(), content_main);
+}
+
+#[tokio::test]
+async fn test_rename_symbol_basic() -> anyhow::Result<()> {
+    let temp_dir = TempDir::new()?;
+    let root = temp_dir.path();
+
+    // Create a test file with a function to rename
+    let test_file = root.join("test.rs");
+    let content = r#"
+fn old_function_name() {
+    println!("Hello world");
+}
+
+fn main() {
+    old_function_name();
+}
+"#;
+    fs::write(&test_file, content)?;
+
+    // Test renaming the function
+    let args = RenameSymbolArgs {
+        path: test_file.to_string_lossy().to_string(),
+        old_name: "old_function_name".to_string(),
+        new_name: "new_function_name".to_string(),
+        symbol_type: Some("function".to_string()),
+        scope: Some("file".to_string()),
+    };
+
+    let journal = Journal::open(root.join("journal.jsonl"))?;
+    let response = Mutator::rename_symbol(root, args, &journal).await;
+
+    // Verify the response is successful
+    assert!(response.is_success());
+    let result = response.content.unwrap();
+
+    // Verify the result
+    assert_eq!(result.files_modified, 1);
+    assert_eq!(result.symbols_renamed, 1);
+
+    // Verify the file content was updated
+    let updated_content = fs::read_to_string(&test_file)?;
+    assert!(updated_content.contains("new_function_name"));
+    assert!(!updated_content.contains("old_function_name"));
+
+    Ok(())
 }

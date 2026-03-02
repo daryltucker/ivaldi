@@ -274,27 +274,29 @@ pub fn git_search_sync(repo: &Repository, query: &str, path: Option<&Path>, limi
 }
 
 pub fn git_raw_sync(args: Vec<String>) -> IvaldiResponse<Value> {
-    use std::process::Command;
+    use std::process::{Command, Stdio};
     use crate::util::process::ProcessGuard;
     use crate::error::IvaldiError;
     
     let mut cmd = Command::new("git");
     cmd.args(&args);
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
 
-    let mut pg = match ProcessGuard::spawn(&mut cmd) {
+    let pg = match ProcessGuard::spawn(&mut cmd) {
         Ok(p) => p,
         Err(e) => return IvaldiResponse::from_error(IvaldiError::Io(e)),
     };
 
-    let output = match pg.wait() {
-        // Since we didn't capture stdout/stderr in spawn, they go to inherited handles.
-        // For git_raw tool, we should probably capture them if we want to return them.
+    let output = match pg.wait_with_output() {
         Ok(o) => o,
         Err(e) => return IvaldiResponse::from_error(IvaldiError::Io(e)),
     };
 
     IvaldiResponse::success(serde_json::json!({
         "status": "completed",
-        "exit_code": output.code()
+        "exit_code": output.status.code(),
+        "stdout": String::from_utf8_lossy(&output.stdout),
+        "stderr": String::from_utf8_lossy(&output.stderr)
     }))
 }

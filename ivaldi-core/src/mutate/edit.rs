@@ -31,23 +31,83 @@ pub async fn edit_file(
             return IvaldiResponse::from_error(IvaldiError::InvalidArgument("Edit requires query, grep, or from_line/to_line".into()));
     };
 
-    // 2. Perform Edit
+    // 2. Perform Edit with Crime Scene error handling
     let file_type = FileType::from_path(&args.path);
-    let new_content = match crate::ast_edit::edit_content(&content, file_type, selector, &args.replacement).await {
-        Ok(c) => c,
-        Err(e) => return IvaldiResponse::from_error(IvaldiError::Internal(format!("Edit failed: {}", e))),
+    let outcome = match crate::ast_edit::edit_content(&content, file_type, selector, &args.replacement).await {
+        Ok(o) => o,
+        Err(rich_error) => {
+            // Convert RichEditError to IvaldiResponse with Crime Scene advisory
+            return match rich_error {
+                crate::ast_edit::RichEditError::NoMatch(mut context) => {
+                    // Set the actual file path
+                    context.file_info.path = args.path.to_string_lossy().to_string();
+                    let mut response = IvaldiResponse::from_error(IvaldiError::Query("No nodes matched query".into()));
+                    response.advisory.push(context.to_advisory());
+                    response
+                },
+                crate::ast_edit::RichEditError::Ambiguous(mut context) => {
+                    // Set the actual file path
+                    context.file_info.path = args.path.to_string_lossy().to_string();
+                    let mut response = IvaldiResponse::from_error(IvaldiError::Query("Ambiguous edit: multiple nodes matched".into()));
+                    response.advisory.push(context.to_advisory());
+                    response
+                },
+                crate::ast_edit::RichEditError::InvalidLineRange(msg) => {
+                    IvaldiResponse::from_error(IvaldiError::InvalidArgument(msg))
+                },
+                crate::ast_edit::RichEditError::GrepNoMatch(mut context) => {
+                    // Set the actual file path
+                    context.file_info.path = args.path.to_string_lossy().to_string();
+                    let mut response = IvaldiResponse::from_error(IvaldiError::Query("No line matched grep pattern".into()));
+                    response.advisory.push(context.to_advisory());
+                    response
+                },
+                crate::ast_edit::RichEditError::GrepAmbiguous(mut context) => {
+                    // Set the actual file path
+                    context.file_info.path = args.path.to_string_lossy().to_string();
+                    let mut response = IvaldiResponse::from_error(IvaldiError::Query("Ambiguous edit: multiple lines matched grep pattern".into()));
+                    response.advisory.push(context.to_advisory());
+                    response
+                },
+                crate::ast_edit::RichEditError::MissingLineStart => {
+                    IvaldiResponse::from_error(IvaldiError::Internal("AST node missing line_start".into()))
+                },
+                crate::ast_edit::RichEditError::MissingLineEnd => {
+                    IvaldiResponse::from_error(IvaldiError::Internal("AST node missing line_end".into()))
+                },
+                crate::ast_edit::RichEditError::Vecq(e) => {
+                    IvaldiResponse::from_error(IvaldiError::Query(format!("Vecq error: {}", e)))
+                },
+                crate::ast_edit::RichEditError::Anyhow(e) => {
+                    IvaldiResponse::from_error(IvaldiError::Internal(format!("Internal error: {}", e)))
+                },
+            };
+        }
     };
+
+    let mut advisories = Vec::new();
+    for h in outcome.heuristics_triggered {
+        let msg = match h.as_str() {
+            "indentation_healing" => "Surgical content was indented to match the target site's structural depth.",
+            "anchor_trimming_leading" => "Leading anchor line detected and removed from replacement string.",
+            "anchor_trimming_trailing" => "Trailing anchor line detected and removed from replacement string.",
+            _ => "Surgery heuristic applied during edit.",
+        };
+        advisories.push(crate::AdvisoryMessage::tool_info(msg));
+    }
 
     // 3. Write via write_file
     // Construct WriteFileArgs
     let write_args = WriteFileArgs {
         path: args.path,
-        content: new_content,
-        overwrite: args.overwrite,
+        content: outcome.content,
+        overwrite: true, // ALWAYS overwrite here, as edit_file logic handles the merge
         append: false,
     };
 
-    write_file(root, write_args, journal)
+    let mut response = write_file(root, write_args, journal);
+    response.advisory.extend(advisories);
+    response
 }
 
 /// Transactional multi-file edit.
@@ -58,16 +118,26 @@ pub async fn edit_files(
     journal: &Journal,
 ) -> IvaldiResponse<Vec<PathBuf>> {
     // PHASE 1: PREPARE (Read & Calculate New Content)
-    let mut prepared_writes = Vec::new();
-    
+    // We use a local cache to track the "working state" of files during the transaction.
+    // This allows multiple edits to the same file to build upon each other instead
+    // of overwriting each other.
+    let mut file_states: std::collections::HashMap<PathBuf, String> = std::collections::HashMap::new();
+    let mut unique_paths = Vec::new();
+
     for edit_arg in args.edits {
-        // Read
-        let content = match fs::read_to_string(&edit_arg.path) {
-            Ok(c) => c,
-            Err(e) => return IvaldiResponse::error("read_error", format!("Failed to read {}: {}", edit_arg.path.display(), e)),
+        // Get the latest content (from cache if already touched, otherwise disk)
+        let content = if let Some(cached_content) = file_states.get(&edit_arg.path) {
+            cached_content.clone()
+        } else {
+            let disk_content = match fs::read_to_string(&edit_arg.path) {
+                Ok(c) => c,
+                Err(e) => return IvaldiResponse::error("read_error", format!("Failed to read {}: {}", edit_arg.path.display(), e)),
+            };
+            unique_paths.push(edit_arg.path.clone());
+            disk_content
         };
         
-        // Selector logic (duplicated from edit_file, maybe extract?)
+        // Selector logic
         let selector = if let Some(q) = &edit_arg.query {
                 crate::ast_edit::EditSelector::Node(q.to_string())
         } else if let Some(g) = &edit_arg.grep {
@@ -78,20 +148,28 @@ pub async fn edit_files(
                 return IvaldiResponse::error("invalid_args", format!("Invalid args for {}: Selector required", edit_arg.path.display()));
         };
         
-        // Edit
+        // Apply Edit to the CURRENT state (could be already modified in this turn)
         let file_type = FileType::from_path(&edit_arg.path);
-        let new_content = match crate::ast_edit::edit_content(&content, file_type, selector, &edit_arg.replacement).await {
-            Ok(c) => c,
+        let outcome = match crate::ast_edit::edit_content(&content, file_type, selector, &edit_arg.replacement).await {
+            Ok(o) => o,
             Err(e) => return IvaldiResponse::error("edit_error", format!("Failed to edit {}: {}", edit_arg.path.display(), e)),
         };
         
-        // Store for Phase 2
-        prepared_writes.push(WriteFileArgs {
-            path: edit_arg.path,
-            content: new_content,
-            overwrite: edit_arg.overwrite,
-            append: false,
-        });
+        // Update cache for next possible edit on this path
+        file_states.insert(edit_arg.path.clone(), outcome.content);
+    }
+    
+    // Convert cached final states to WriteFileArgs
+    let mut prepared_writes = Vec::new();
+    for path in unique_paths {
+        if let Some(content) = file_states.remove(&path) {
+            prepared_writes.push(WriteFileArgs {
+                path,
+                content,
+                overwrite: true,
+                append: false,
+            });
+        }
     }
     
     // PHASE 2: COMMIT (Write with Rollback)

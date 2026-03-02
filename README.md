@@ -25,18 +25,38 @@
 
 ## 🏗️ Getting Started
 
-### 1. Build & Install
-```bash
-# Clone and build
-git clone https://github.com/daryltucker/ivaldi-mcp
-cd ivaldi-mcp
-make build
+### 1. Installation
 
-# Install CLI & Server
-make install
+| Method | speed | Pre-compiled? | Action |
+| :--- | :--- | :--- | :--- |
+| **Cargo Binstall** | ⚡ Instant | **YES** | `cargo binstall --git https://github.com/daryltucker/ivaldi-mcp ivaldi-cli ivaldi-server` |
+| **Direct Download**| ⚡ Instant | **YES** | [Download latest release](https://github.com/daryltucker/ivaldi-mcp/releases) |
+| **Cargo Install** | 🐢 Slow | **NO** (Source) | `cargo install --git https://github.com/daryltucker/ivaldi-mcp ivaldi-cli ivaldi-server` |
+
+> [!CAUTION]
+> **Compilation vs. Download**
+> - `cargo install` **ALWAYS** compiles from source on your machine.
+> - `cargo binstall` and **Direct Download** use the pre-compiled binaries produced by GitHub Actions.
+
+
+### 1. Install
+
+```bash
+cargo install --git https://github.com/daryltucker/ivaldi ivaldi-server
 ```
 
-### 2. Configure (Claude Desktop)
+### 2. Configure
+
+#### Claude Code (User-Global)
+
+```bash
+claude mcp add --scope user ivaldi \
+  -e IVALDI_ROOT=/home/you/Projects/ \
+  -e IVALDI_RESPONSE_MODE=auto \
+  -- ivaldi-server
+```
+
+#### Claude Desktop
 Add this to your `claude_config.json`:
 
 ```json
@@ -53,12 +73,16 @@ Add this to your `claude_config.json`:
 }
 ```
 
+> It is recommended to create `.vectorignore` and leave `IVALDI_ENABLE_GITIGNORE=false`.
+
+
 ## 📖 Documentation
 
 - [**Architecture Guide**](docs/ARCHITECTURE.md) - Deep dive into state and safety.
 - [**Agent Manual (Auto-generated)**](docs/MAN_AGENT.json) - Direct schema for agents.
 - [**Configuration Reference**](docs/CONFIGURATION.md) - ENV and CLI flag details.
 - [**Testing Standards**](docs/TESTING_STANDARDS.md) - Coverage and stability protocols.
+- [**Troubleshooting Guide**](docs/TROUBLESHOOTING.md) - Common issues and solutions.
 
 ## 🤝 Mahal Integration
 This project is optimized for use within the **Mahal** ecosystem. It provides rich metadata headers and structured JSON responses that Mahal's reasoning engine can optimize against.

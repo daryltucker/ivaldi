@@ -29,12 +29,14 @@ pub mod git;
 pub mod syntax;
 pub mod permissions;
 pub mod typos;
+pub mod edit;
 
 // Re-exports for convenience
 pub use git::GitAwareness;
 pub use syntax::SyntaxGuard;
 pub use permissions::PermissionFixer;
 pub use typos::SiblingTyposHint;
+pub use edit::{NoMatchContext, AmbiguousContext, SelectorType, FileInfo, AvailableTargets, TargetInfo, MatchInfo, ListItemInfo, GrepNoMatchContext, GrepAmbiguousContext};
 
 /// ParentDirectoryHint (Stump implementation, maybe move to own file later if expanded)
 pub struct ParentDirectoryHint;

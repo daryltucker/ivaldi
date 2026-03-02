@@ -37,7 +37,6 @@ async fn test_ast_selector_replaces_rust_function() {
         grep: None,
         from_line: None,
         to_line: None,
-        overwrite: true,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -72,7 +71,6 @@ async fn test_grep_selector_replaces_exact_line() {
         grep: Some("target line".to_string()),
         from_line: None,
         to_line: None,
-        overwrite: true,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -105,7 +103,6 @@ async fn test_line_range_selector_replaces_range() {
         grep: None,
         from_line: Some(2),
         to_line: Some(3),
-        overwrite: true,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -137,7 +134,6 @@ async fn test_ast_selector_not_found_returns_error() {
         grep: None,
         from_line: None,
         to_line: None,
-        overwrite: true,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -173,7 +169,6 @@ async fn test_grep_multiple_matches_returns_error() {
         grep: Some("match".to_string()),
         from_line: None,
         to_line: None,
-        overwrite: true,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -208,7 +203,6 @@ async fn test_line_range_invalid_returns_error() {
         grep: None,
         from_line: Some(2),
         to_line: Some(5),
-        overwrite: true,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -219,9 +213,9 @@ async fn test_line_range_invalid_returns_error() {
     assert_eq!(final_content, original);
 }
 
-/// **TRUTH**: Smart append default adds to existing file without --force
+/// **TRUTH**: Smart append default is DISABLED. Must be explicit.
 #[test]
-fn test_write_default_appends_to_existing() {
+fn test_write_default_fails_on_existing() {
     let dir = tempdir().unwrap();
     let file = dir.path().join("test.txt");
     let journal = Journal::open(dir.path().join("journal.jsonl")).unwrap();
@@ -237,27 +231,26 @@ fn test_write_default_appends_to_existing() {
     let result1 = Mutator::write_file(dir.path(), args, &journal);
     assert!(result1.is_success());
 
-    // Write again with default options (should append)
+    // Write again with default options (should FAIL now)
     let additional = "Line 3\n";
-    let args_append = WriteFileArgs {
+    let args_default = WriteFileArgs {
         path: file.clone(),
         content: additional.to_string(),
         overwrite: false,
         append: false,
     };
-    let result2 = Mutator::write_file(dir.path(), args_append, &journal);
-    assert!(result2.is_success());
+    let result2 = Mutator::write_file(dir.path(), args_default, &journal);
     
-    // Check for "Appended" advisory among all advisories
-    let has_append_advisory = result2.advisory.iter().any(|a| {
-        let msg = a.content.as_str().unwrap_or("");
-        msg.contains("Appended") && msg.contains("2 lines")
-    });
-    assert!(has_append_advisory, "Should have advisory about append with line count. Advisories: {:?}", result2.advisory);
+    // VERIFY: It failed with WriteCollision
+    assert!(result2.is_error, "Should fail on collision by default");
+    match result2.error {
+        Some(e) => assert_eq!(e.code, "collision_error"),
+        None => panic!("Expected error detail"),
+    }
 
-    // VERIFY: Content was appended
+    // VERIFY: Content was NOT changed
     let final_content = fs::read_to_string(&file).unwrap();
-    assert_eq!(final_content, "Line 1\nLine 2\nLine 3\n");
+    assert_eq!(final_content, original);
 }
 
 #[test]

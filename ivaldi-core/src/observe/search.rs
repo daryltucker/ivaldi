@@ -27,7 +27,7 @@ pub struct SearchCodeArgs {
     /// Path to the file or directory to search
     pub path: PathBuf,
     
-    /// AST Query (jq-style). 
+    /// AST Query (jq-style) (e.g., .functions[], .classes[], .structs[], .imports[], .comments[]).
     /// If provided, this takes precedence (Power Mode).
     /// If omitted, use `category` and `name_pattern` (Friendly Mode).
     pub query: Option<String>,

@@ -9,9 +9,11 @@ These parameters change the running state of the system and can be set via CLI f
 | `conversation_id` | `IVALDI_CONVERSATION_ID` | `--conversation-id` | Conversation ID for naked/stdio drivers (overrides IDE metadata) | None |
 | `conversation_mode` | `IVALDI_CONVERSATION_MODE` | `--conversation-mode` | Conversation mode: persist (default, full tracking) or incognito (ephemeral, no vecdb) | None |
 | `api_key` | `IVALDI_API_KEY` | `--api-key` | API Key for authenticated services | None |
+| `tool_namespace` | `IVALDI_TOOL_NAMESPACE` | `--tool-namespace` | Tool namespace prefix (helps avoid clashes with other MCP servers) | None |
 | `config` | `IVALDI_CONFIG` | `--config` | Path to a custom configuration file | None |
 | `exec_sandboxing` | `IVALDI_EXEC_SANDBOXING` | `--exec-sandboxing` | Example: --exec-sandboxing=fs,net | None |
 | `transport` | `IVALDI_TRANSPORT` | `--transport` | Transport mode: stdio (default) or http | None |
+| `response_mode` | `IVALDI_RESPONSE_MODE` | `--response-mode` | Response format mode: mcp, openai, or auto (default: auto) | None |
 | `port` | `IVALDI_PORT` | `--port` | Port for HTTP server (default: 8080) | None |
 
 ### Core Options

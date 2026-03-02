@@ -47,15 +47,13 @@ impl SiblingTyposHint {
         }
 
         if !suggestions.is_empty() {
-             // Sort by shortest name (or similarity?) - let's just take first few
-             suggestions.sort(); 
-             let msg = format!("File not found. Did you mean: {}?", suggestions.join(", "));
              let content = serde_json::json!({
                  "error_type": "not_found",
-                 "suggestions": suggestions
+                 "alternatives": suggestions
              });
-             // Use adt_suggest which incorporates the label/message
-             return Some(AdvisoryMessage::adt_suggest(content, &msg));
+             
+             let action = format!("Did you mean: {}?", suggestions.join(", "));
+             return Some(AdvisoryMessage::tool_info(content).with_action(action));
         }
 
         None 

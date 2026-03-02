@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "1.0.0",
   "protocol": "mcp-2024-11-05",
   "generated_at": "build-time",
   "tools": [
@@ -163,8 +163,44 @@
       }
     },
     {
+      "name": "run_command",
+      "description": "Arguments for the run_command tool\n\n**Behavior**: Executes shell commands with timeout protection and policy controls. **Safety**: Subject to security policy checks. Commands are executed in isolated processes. **Advisory**: Use with caution. Commands may have side effects on the filesystem. **Usage**: Run shell commands like 'git status', 'npm install', or custom scripts.",
+      "inputSchema": {
+        "properties": {
+          "args": {
+            "description": "Arguments to pass to the program",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "description": "The program to execute (e.g. \"git\", \"ls\")",
+            "type": "string"
+          },
+          "cwd": {
+            "description": "Working directory (optional, defaults to project root)",
+            "type": "string"
+          },
+          "timeout_ms": {
+            "description": "Timeout in milliseconds (default 5000)",
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "title": "RunCommandArgs",
+        "description": "Arguments for the run_command tool\n\n**Behavior**: Executes shell commands with timeout protection and policy controls. **Safety**: Subject to security policy checks. Commands are executed in isolated processes. **Advisory**: Use with caution. Commands may have side effects on the filesystem. **Usage**: Run shell commands like 'git status', 'npm install', or custom scripts.",
+        "type": "object",
+        "required": [
+          "args",
+          "command"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "write_file",
-      "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count when appending to help you decide if you intended to overwrite. **Usage**: Use for creating new files or adding content. Use `overwrite=true` only when you are certain you want to replace everything.",
+      "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count and provides instructions on 'overwrite: true' when an implicit append occurs.",
       "inputSchema": {
         "properties": {
           "append": {
@@ -187,7 +223,7 @@
           }
         },
         "title": "WriteFileArgs",
-        "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count when appending to help you decide if you intended to overwrite. **Usage**: Use for creating new files or adding content. Use `overwrite=true` only when you are certain you want to replace everything.",
+        "description": "Arguments for the write_file tool\n\n**Behavior**: Writes full content to a file. Atomic, safe, and backed up. **Smart Default**: If file exists and `overwrite=false`, content is **appended** to the end. **Safety**: - **Backup First**: Original content backed up to `.ivaldi/backups/`. - **Advisory Richness**: Reveals original line/byte count and provides instructions on 'overwrite: true' when an implicit append occurs.",
         "type": "object",
         "required": [
           "content",
@@ -210,17 +246,12 @@
             "description": "Regex line matching selector",
             "type": "string"
           },
-          "overwrite": {
-            "description": "Overwrite existing file (default: true)",
-            "default": true,
-            "type": "boolean"
-          },
           "path": {
             "description": "Path to the file to edit",
             "type": "string"
           },
           "query": {
-            "description": "vecq query selector (AST)",
+            "description": "vecq query selector (AST) (e.g., .functions[], .classes[], .structs[], .imports[], .comments[])",
             "type": "string"
           },
           "replacement": {
@@ -343,7 +374,7 @@
             "type": "string"
           },
           "query": {
-            "description": "AST Query (jq-style). If provided, this takes precedence (Power Mode). If omitted, use `category` and `name_pattern` (Friendly Mode).",
+            "description": "AST Query (jq-style) (e.g., .functions[], .classes[], .structs[], .imports[], .comments[]). If provided, this takes precedence (Power Mode). If omitted, use `category` and `name_pattern` (Friendly Mode).",
             "type": "string"
           }
         },
@@ -360,156 +391,74 @@
       "name": "git_read",
       "description": "Arguments for the git_read tool\n\n**Behavior**: Provides read-only access to Git history. Supports blame, log, diff, and search operations.\n\n**Actions**: - `blame`: Identifies who changed which lines in a file. - `log`: Lists commit history, optionally filtered by path or time. - `diff`: Returns the changes between branches, tags, or commits. - `search`: Searches commit messages or content using regex. - `raw`: Executes arbitrary git commands (use with caution).\n\n**Safety**: Read-only. Does not modify the repository state.\n\n**Usage**: Use to understand the evolution of code, find when a bug was introduced, or compare implementations across versions.",
       "inputSchema": {
+        "additionalProperties": false,
+        "title": "GitReadArgs",
+        "description": "Arguments for the git_read tool\n\n**Behavior**: Provides read-only access to Git history. Supports blame, log, diff, and search operations.\n\n**Actions**: - `blame`: Identifies who changed which lines in a file. - `log`: Lists commit history, optionally filtered by path or time. - `diff`: Returns the changes between branches, tags, or commits. - `search`: Searches commit messages or content using regex. - `raw`: Executes arbitrary git commands (use with caution).\n\n**Safety**: Read-only. Does not modify the repository state.\n\n**Usage**: Use to understand the evolution of code, find when a bug was introduced, or compare implementations across versions.",
+        "type": "object",
         "properties": {
           "project_root": {
             "description": "Optional: Override project root for git operations. If omitted, uses session's project_root from MCP initialize.",
             "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "blame",
+              "log",
+              "diff",
+              "search",
+              "raw"
+            ],
+            "description": "The action to perform"
+          },
+          "lines": {
+            "default": null,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "path": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 0
+          },
+          "since": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "stat_only": {
+            "default": false,
+            "type": "boolean"
+          },
+          "to": {
+            "default": "HEAD",
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
-        "title": "GitReadArgs",
-        "description": "Arguments for the git_read tool\n\n**Behavior**: Provides read-only access to Git history. Supports blame, log, diff, and search operations.\n\n**Actions**: - `blame`: Identifies who changed which lines in a file. - `log`: Lists commit history, optionally filtered by path or time. - `diff`: Returns the changes between branches, tags, or commits. - `search`: Searches commit messages or content using regex. - `raw`: Executes arbitrary git commands (use with caution).\n\n**Safety**: Read-only. Does not modify the repository state.\n\n**Usage**: Use to understand the evolution of code, find when a bug was introduced, or compare implementations across versions.",
-        "type": "object",
-        "oneOf": [
-          {
-            "type": "object",
-            "required": [
-              "action",
-              "path"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "blame"
-                ]
-              },
-              "lines": {
-                "default": null,
-                "type": "array",
-                "items": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              },
-              "path": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "action"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "log"
-                ]
-              },
-              "limit": {
-                "default": 50,
-                "type": "integer",
-                "minimum": 0
-              },
-              "path": {
-                "type": "string"
-              },
-              "since": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "action",
-              "from"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "diff"
-                ]
-              },
-              "from": {
-                "type": "string"
-              },
-              "path": {
-                "type": "string"
-              },
-              "stat_only": {
-                "default": false,
-                "type": "boolean"
-              },
-              "to": {
-                "default": "HEAD",
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "action",
-              "query"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "search"
-                ]
-              },
-              "limit": {
-                "default": 50,
-                "type": "integer",
-                "minimum": 0
-              },
-              "path": {
-                "type": "string"
-              },
-              "query": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "action",
-              "args"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "raw"
-                ]
-              },
-              "args": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            },
-            "additionalProperties": false
-          }
-        ],
-        "additionalProperties": false,
-        "required": []
+        "required": [
+          "action"
+        ]
       }
     },
     {
       "name": "read_syslogs",
-      "description": "Arguments for the read_syslogs tool\n\n**Behavior**: Fetches structured logs from systemd-journald.\n\n**Filters**: Supports filtering by service (unit name), log level, time window, and regex pattern.\n\n**Safety**: - Bounded by `limit` (default 100). - Direct FFI access to journald (no subprocesses).\n\n**Usage**: Use to debug service failures, monitor system health, or trace application logs in a production-like environment.\n\n**Examples**: - `since: \"10m\"` (last 10 minutes) - `level: \"error\"` (only errors and above)",
+      "description": "Arguments for the read_syslogs tool",
       "inputSchema": {
         "definitions": {
           "LogLevel": {
@@ -528,7 +477,7 @@
           }
         },
         "title": "ReadSyslogsArgs",
-        "description": "Arguments for the read_syslogs tool\n\n**Behavior**: Fetches structured logs from systemd-journald.\n\n**Filters**: Supports filtering by service (unit name), log level, time window, and regex pattern.\n\n**Safety**: - Bounded by `limit` (default 100). - Direct FFI access to journald (no subprocesses).\n\n**Usage**: Use to debug service failures, monitor system health, or trace application logs in a production-like environment.\n\n**Examples**: - `since: \"10m\"` (last 10 minutes) - `level: \"error\"` (only errors and above)",
+        "description": "Arguments for the read_syslogs tool",
         "type": "object",
         "properties": {
           "boot": {
@@ -537,14 +486,12 @@
           },
           "level": {
             "description": "Minimum log level to include",
-            "anyOf": [
-              {
-                "$ref": "#/definitions/LogLevel"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "properties": {},
+            "required": [
+              "action"
+            ],
+            "type": "object",
+            "additionalProperties": false
           },
           "limit": {
             "description": "Maximum number of entries to return (default: 100)",

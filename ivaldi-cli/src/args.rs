@@ -125,10 +125,6 @@ pub enum Commands {
         /// Replacement content
         #[arg(long, short = 'r')]
         replacement: String,
-
-        /// Force write (bypass checks)
-        #[arg(long, short = 'f')]
-        force: bool,
     },
 
     /// Undo the last operation (The Time Machine)

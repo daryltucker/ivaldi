@@ -109,7 +109,11 @@ impl SessionManager {
         
         // Create new
         let root = root.unwrap_or_else(|| {
-             env::current_dir().unwrap_or_else(|_| PathBuf::from("/"))
+             env::current_dir()
+                .ok()
+                .or_else(|| env::var("IVALDI_ROOT").ok().map(PathBuf::from))
+                .or_else(|| env::var("HOME").ok().map(PathBuf::from))
+                .unwrap_or_else(|| PathBuf::from("/"))
         });
         
         // Priority: explicit_project_root > discovery

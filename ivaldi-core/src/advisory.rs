@@ -31,6 +31,15 @@
 //! - Error code lookup for known solutions
 //!
 //! This enables "prophetic error correction" - warning agents before they fail.
+//!
+//! ## MESSAGE CRAFTING GUIDELINES
+//!
+//! To ensure Ivaldi remains a robust and non-opinionated tool, follow these rules when crafting messages:
+//!
+//! 1. **Factual Instrumentation Only**: Messages must describe *what* the tool did and *why* (the state change), not *what the agent should do*.
+//! 2. **Avoid "Suggestive" Language**: Do not use words like "Consider", "Recommended", or "Better".
+//! 3. **Truth of State**: Provide the Agent with the most accurate picture of the final file state so they can make their own informed decisions.
+//! 4. **Neutral Tone**: Use passive, descriptive voice (e.g., "Leading anchor line removed" vs "You should remove anchor lines").
 
 use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
@@ -102,6 +111,11 @@ pub struct AdvisoryMessage {
     pub reference: Option<String>,
 }
 
+/// Guidelines for crafting Advisory Messages:
+/// - **NEVER** use opinionated coaching (e.g., "You should...")
+/// - **ALWAYS** use factual instrumentation (e.g., "Tool applied X because of Y")
+/// - **PRIORITIZE** describing the resulting state over the process
+
 // ============================================================================
 // BUILDER METHODS
 // ============================================================================
@@ -143,6 +157,12 @@ impl AdvisoryMessage {
         }
     }
     
+    /// Add a suggested action
+    pub fn with_action(mut self, action: impl Into<String>) -> Self {
+        self.action = Some(action.into());
+        self
+    }
+
     /// Add an embedding from vecdb search
     pub fn with_embedding(mut self, embedding: Vec<f32>) -> Self {
         self.embedding = Some(embedding);

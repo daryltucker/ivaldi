@@ -14,9 +14,9 @@ impl Heuristic for SyntaxGuard {
             let content = serde_json::json!({
                 "syntax_valid": false, 
                 "language": "rust",
-                "error": "Potential syntax error detected. Code block may be incomplete."
+                "instrumentation": "Target file type: Rust (.rs). Structural validation depends on external tooling (e.g., `cargo check`)."
             });
-            return Some(AdvisoryMessage::adt_suggest(content, "Run `cargo check` to verify syntax."));
+            return Some(AdvisoryMessage::tool_info(content));
         }
         None
     }

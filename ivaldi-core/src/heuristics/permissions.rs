@@ -20,20 +20,20 @@ impl Heuristic for PermissionFixer {
                 || err.message.contains("OS Error 13");
 
             if is_permission_error {
-                use std::os::unix::fs::PermissionsExt;
-                use std::os::unix::fs::MetadataExt;
-
                 let mut context = serde_json::Map::new();
                 context.insert("error_code".to_string(), "EACCES".into());
                 context.insert("path".to_string(), path.to_string_lossy().into());
 
                 // Process Context (who am I?)
                 let mut process_info = serde_json::Map::new();
-                unsafe {
-                    process_info.insert("uid".to_string(), libc::getuid().into());
-                    process_info.insert("gid".to_string(), libc::getgid().into());
-                    process_info.insert("euid".to_string(), libc::geteuid().into());
-                    process_info.insert("egid".to_string(), libc::getegid().into());
+                #[cfg(unix)]
+                {
+                    unsafe {
+                        process_info.insert("uid".to_string(), libc::getuid().into());
+                        process_info.insert("gid".to_string(), libc::getgid().into());
+                        process_info.insert("euid".to_string(), libc::geteuid().into());
+                        process_info.insert("egid".to_string(), libc::getegid().into());
+                    }
                 }
                 context.insert("process".to_string(), Value::Object(process_info));
 
@@ -44,26 +44,28 @@ impl Heuristic for PermissionFixer {
                         target_info.insert("exists".to_string(), true.into());
                         target_info.insert("is_file".to_string(), meta.is_file().into());
                         target_info.insert("is_dir".to_string(), meta.is_dir().into());
-                        
-                        let mode = meta.permissions().mode();
-                        target_info.insert("mode".to_string(), format!("{:o}", mode).into());
-                        target_info.insert("mode_octal".to_string(), format!("0{:o}", mode & 0o7777).into());
-                        target_info.insert("mode_symbolic".to_string(), format_mode_symbolic(mode).into());
-                        
-                        target_info.insert("uid".to_string(), meta.uid().into());
-                        target_info.insert("gid".to_string(), meta.gid().into());
                         target_info.insert("size_bytes".to_string(), meta.len().into());
-
-                        // Effective permissions check (simplified)
-                        let current_uid = unsafe { libc::getuid() };
-                        let file_uid = meta.uid();
-                        let user_can_read = (mode & 0o400) != 0 && current_uid == file_uid;
-                        let user_can_write = (mode & 0o200) != 0 && current_uid == file_uid;
-                        let user_can_exec = (mode & 0o100) != 0 && current_uid == file_uid;
                         
-                        target_info.insert("readable".to_string(), user_can_read.into());
-                        target_info.insert("writable".to_string(), user_can_write.into());
-                        target_info.insert("executable".to_string(), user_can_exec.into());
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::PermissionsExt;
+                            use std::os::unix::fs::MetadataExt;
+                            let mode = meta.permissions().mode();
+                            target_info.insert("mode".to_string(), format!("{:o}", mode).into());
+                            target_info.insert("mode_octal".to_string(), format!("0{:o}", mode & 0o7777).into());
+                            target_info.insert("mode_symbolic".to_string(), format_mode_symbolic(mode).into());
+                            target_info.insert("uid".to_string(), meta.uid().into());
+                            target_info.insert("gid".to_string(), meta.gid().into());
+                            let current_uid = unsafe { libc::getuid() };
+                            let file_uid = meta.uid();
+                            target_info.insert("readable".to_string(), ((mode & 0o400) != 0 && current_uid == file_uid).into());
+                            target_info.insert("writable".to_string(), ((mode & 0o200) != 0 && current_uid == file_uid).into());
+                            target_info.insert("executable".to_string(), ((mode & 0o100) != 0 && current_uid == file_uid).into());
+                        }
+                        #[cfg(not(unix))]
+                        {
+                            target_info.insert("readonly".to_string(), meta.permissions().readonly().into());
+                        }
                     } else {
                         target_info.insert("exists".to_string(), true.into());
                         target_info.insert("metadata_error".to_string(), "Could not read metadata".into());
@@ -81,20 +83,24 @@ impl Heuristic for PermissionFixer {
                     if parent.exists() {
                         if let Ok(meta) = std::fs::metadata(parent) {
                             parent_info.insert("exists".to_string(), true.into());
-                            
-                            let mode = meta.permissions().mode();
-                            parent_info.insert("mode".to_string(), format!("{:o}", mode).into());
-                            parent_info.insert("mode_octal".to_string(), format!("0{:o}", mode & 0o7777).into());
-                            parent_info.insert("mode_symbolic".to_string(), format_mode_symbolic(mode).into());
-                            
-                            parent_info.insert("uid".to_string(), meta.uid().into());
-                            parent_info.insert("gid".to_string(), meta.gid().into());
-
-                            // Check if parent is writable
-                            let current_uid = unsafe { libc::getuid() };
-                            let parent_uid = meta.uid();
-                            let writable = (mode & 0o200) != 0 && current_uid == parent_uid;
-                            parent_info.insert("writable".to_string(), writable.into());
+                            #[cfg(unix)]
+                            {
+                                use std::os::unix::fs::PermissionsExt;
+                                use std::os::unix::fs::MetadataExt;
+                                let mode = meta.permissions().mode();
+                                parent_info.insert("mode".to_string(), format!("{:o}", mode).into());
+                                parent_info.insert("mode_octal".to_string(), format!("0{:o}", mode & 0o7777).into());
+                                parent_info.insert("mode_symbolic".to_string(), format_mode_symbolic(mode).into());
+                                parent_info.insert("uid".to_string(), meta.uid().into());
+                                parent_info.insert("gid".to_string(), meta.gid().into());
+                                let current_uid = unsafe { libc::getuid() };
+                                let parent_uid = meta.uid();
+                                parent_info.insert("writable".to_string(), ((mode & 0o200) != 0 && current_uid == parent_uid).into());
+                            }
+                            #[cfg(not(unix))]
+                            {
+                                parent_info.insert("readonly".to_string(), meta.permissions().readonly().into());
+                            }
                         } else {
                             parent_info.insert("exists".to_string(), true.into());
                             parent_info.insert("metadata_error".to_string(), "Could not read metadata".into());
@@ -125,6 +131,7 @@ impl PermissionFixer {
 }
 
 // Helper function to format mode as symbolic (e.g., "rwxr-xr-x")
+#[cfg(unix)]
 fn format_mode_symbolic(mode: u32) -> String {
     let file_type = if (mode & 0o170000) == 0o040000 { 'd' } else { '-' };
     let user = format!(

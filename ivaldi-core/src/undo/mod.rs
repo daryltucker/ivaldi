@@ -12,7 +12,7 @@ pub mod types;
 
 use std::fs::{self, File, OpenOptions};
 use std::path::{Path, PathBuf};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{Read, BufRead, BufReader, Write, Seek, SeekFrom};
 use fs2::FileExt;
 use types::JournalEntry;
 use anyhow::{Context, Result};
@@ -109,10 +109,133 @@ impl Journal {
     }
     
     /// Get the latest entry (tail).
-    /// Optimisation: We could seek to end and read backwards, but for V1 just read_all.
+    /// Optimisation: Seek to end and read backwards to avoid O(N) memory risk.
     pub fn head(&self) -> Result<Option<JournalEntry>> {
-        let entries = self.read_all()?;
-        Ok(entries.last().cloned())
+        let mut file = File::open(&self.path).context("Failed to open journal for reading")?;
+        file.lock_shared().context("Failed to acquire shared lock")?;
+
+        let metadata = file.metadata()?;
+        let mut file_size = metadata.len();
+        if file_size == 0 {
+            let _ = file.unlock();
+            return Ok(None);
+        }
+
+        let mut buffer = [0u8; 1024];
+        let mut line_bytes = Vec::new();
+
+        // 1. Check for trailing newline
+        file.seek(SeekFrom::End(-1))?;
+        let mut last_byte = [0u8; 1];
+        file.read_exact(&mut last_byte)?;
+        if last_byte[0] == b'\n' {
+            file_size -= 1;
+        }
+
+        let mut pos = file_size;
+        let mut found_line = false;
+
+        while pos > 0 && !found_line {
+            let read_size = std::cmp::min(pos, buffer.len() as u64);
+            pos -= read_size;
+            file.seek(SeekFrom::Start(pos))?;
+            file.read_exact(&mut buffer[..read_size as usize])?;
+
+            for i in (0..read_size as usize).rev() {
+                if buffer[i] == b'\n' {
+                    if !line_bytes.is_empty() {
+                        found_line = true;
+                        break;
+                    }
+                } else {
+                    line_bytes.push(buffer[i]);
+                }
+            }
+        }
+
+        let result = if !line_bytes.is_empty() {
+            line_bytes.reverse();
+            let line = String::from_utf8(line_bytes).map_err(|e| anyhow::anyhow!("Invalid UTF-8 in journal: {}", e))?;
+            let entry: JournalEntry = serde_json::from_str(&line)
+                .with_context(|| format!("Failed to parse journal line: {}", line))?;
+            Ok(Some(entry))
+        } else {
+            Ok(None)
+        };
+
+        let _ = file.unlock();
+        result
+    }
+
+    /// Find the last entry that hasn't been undone yet.
+    /// Uses backward scanning to avoid O(N) memory risk.
+    pub fn find_last_undoable(&self) -> Result<Option<JournalEntry>> {
+        let mut file = File::open(&self.path).context("Failed to open journal for reading")?;
+        file.lock_shared().context("Failed to acquire shared lock")?;
+
+        let metadata = file.metadata()?;
+        let mut file_size = metadata.len();
+        if file_size == 0 {
+            let _ = file.unlock();
+            return Ok(None);
+        }
+
+        let mut buffer = [0u8; 4096];
+        let mut current_line = Vec::new();
+        let mut undos_to_skip = 0;
+
+        // Skip potential trailing newline
+        file.seek(SeekFrom::End(-1))?;
+        let mut b = [0u8; 1];
+        file.read_exact(&mut b)?;
+        if b[0] == b'\n' {
+            file_size -= 1;
+        }
+
+        let mut pos = file_size;
+
+        while pos > 0 {
+            let chunk_size = std::cmp::min(pos, buffer.len() as u64);
+            pos -= chunk_size;
+            file.seek(SeekFrom::Start(pos))?;
+            file.read_exact(&mut buffer[..chunk_size as usize])?;
+
+            for i in (0..chunk_size as usize).rev() {
+                if buffer[i] == b'\n' {
+                    if !current_line.is_empty() {
+                        current_line.reverse();
+                        let line = String::from_utf8(current_line.clone()).map_err(|e| anyhow::anyhow!("Invalid UTF-8: {}", e))?;
+                        let entry: JournalEntry = serde_json::from_str(&line)?;
+                        current_line.clear();
+
+                        if entry.action == ActionType::Undo {
+                            undos_to_skip += 1;
+                        } else if undos_to_skip > 0 {
+                            undos_to_skip -= 1;
+                        } else {
+                            let _ = file.unlock();
+                            return Ok(Some(entry));
+                        }
+                    }
+                } else {
+                    current_line.push(buffer[i]);
+                }
+            }
+        }
+
+        // Handle the first line
+        if !current_line.is_empty() {
+            current_line.reverse();
+            let line = String::from_utf8(current_line).map_err(|e| anyhow::anyhow!("Invalid UTF-8: {}", e))?;
+            let entry: JournalEntry = serde_json::from_str(&line)?;
+            if entry.action != ActionType::Undo && undos_to_skip == 0 {
+                let _ = file.unlock();
+                return Ok(Some(entry));
+            }
+        }
+
+        let _ = file.unlock();
+        Ok(None)
     }
 }
 
@@ -126,34 +249,16 @@ impl Undoer {
     /// Undo the last operation in the journal.
     pub fn undo_last(_root: &Path, journal: &Journal) -> IvaldiResponse<PathBuf> {
         use crate::error::IvaldiError;
-        let entries = match journal.read_all() {
-            Ok(e) => e,
+        let last_entry = match journal.find_last_undoable() {
+            Ok(Some(e)) => e,
+            Ok(None) => return IvaldiResponse::from_error(IvaldiError::Internal("Nothing to undo".into())),
             Err(e) => return IvaldiResponse::from_error(IvaldiError::Journal(e.to_string())),
         };
 
-        if entries.is_empty() {
-            return IvaldiResponse::from_error(IvaldiError::Internal("Journal is empty".into()));
-        }
-
-        let mut active_stack = Vec::new();
-        for (idx, entry) in entries.iter().enumerate() {
-            if entry.action == ActionType::Undo {
-                active_stack.pop();
-            } else {
-                active_stack.push(idx);
-            }
-        }
-
-        let target_idx = match active_stack.last() {
-            Some(&idx) => idx,
-            None => return IvaldiResponse::from_error(IvaldiError::Internal("Nothing to undo".into())),
-        };
-
-        let last_entry = &entries[target_idx];
         let target_path = &last_entry.path;
 
-        if last_entry.path.exists() && let Some(expected_hash) = &last_entry.checksum_after {
-            let current_hash = match calculate_sha256(&last_entry.path) {
+        if target_path.exists() && let Some(expected_hash) = &last_entry.checksum_after {
+            let current_hash = match calculate_sha256(target_path) {
                 Ok(h) => h,
                 Err(e) => return IvaldiResponse::from_error(IvaldiError::Internal(e.to_string())),
             };

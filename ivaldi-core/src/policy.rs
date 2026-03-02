@@ -11,13 +11,25 @@ use tracing::info;
 #[derive(Debug, Error)]
 pub enum PolicyError {
     #[error("Failed to parse policy: {0}")]
-    ParseError(#[from] cedar_policy::ParseErrors),
+    ParseError(Box<cedar_policy::ParseErrors>),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Policy error: {0}")]
-    PolicySetError(#[from] cedar_policy::PolicySetError),
+    PolicySetError(Box<cedar_policy::PolicySetError>),
     #[error("Invalid entity: {0}")]
     EntityError(String),
+}
+
+impl From<cedar_policy::ParseErrors> for PolicyError {
+    fn from(err: cedar_policy::ParseErrors) -> Self {
+        PolicyError::ParseError(Box::new(err))
+    }
+}
+
+impl From<cedar_policy::PolicySetError> for PolicyError {
+    fn from(err: cedar_policy::PolicySetError) -> Self {
+        PolicyError::PolicySetError(Box::new(err))
+    }
 }
 
 /// The PolicyEngine enforces permissions using Cedar.
@@ -32,21 +44,19 @@ impl PolicyEngine {
         let mut policy_set = PolicySet::new();
         let mut loaded_any = false;
 
-        if let Some(dir) = policy_dir {
-            if dir.exists() {
-                for entry in std::fs::read_dir(dir)? {
-                    let entry = entry?;
-                    let path = entry.path();
-                    if path.extension().map_or(false, |ext| ext == "cedar") {
-                        let src = std::fs::read_to_string(&path)?;
-                        let filename = path.file_stem().unwrap().to_string_lossy();
-                        let policy_id = PolicyId::from_str(&filename).unwrap_or_else(|_| PolicyId::from_str("default").unwrap());
-                        
-                        let policy = Policy::parse(Some(policy_id), &src)?;
-                        policy_set.add(policy)?;
-                        info!("Loaded policy file: {:?}", path);
-                        loaded_any = true;
-                    }
+        if let Some(dir) = policy_dir.filter(|d| d.exists()) {
+            for entry in std::fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == "cedar") {
+                    let src = std::fs::read_to_string(&path)?;
+                    let filename = path.file_stem().unwrap().to_string_lossy();
+                    let policy_id = PolicyId::from_str(&filename).unwrap_or_else(|_| PolicyId::from_str("default").unwrap());
+                    
+                    let policy = Policy::parse(Some(policy_id), &src)?;
+                    policy_set.add(policy)?;
+                    info!("Loaded policy file: {:?}", path);
+                    loaded_any = true;
                 }
             }
         }

@@ -29,7 +29,7 @@ fn test_write_new_file() {
 }
 
 #[test]
-fn test_smart_append_behavior() {
+fn test_collision_failure_behavior() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();
     let journal = Journal::open(root.join("journal.jsonl")).unwrap();
@@ -37,7 +37,7 @@ fn test_smart_append_behavior() {
     let target = root.join("exists.txt");
     fs::write(&target, "Old Content").unwrap();
     
-    // Attempt write without overwrite flag -> Should Append
+    // Attempt write without overwrite flag -> Should FAIL
     let args = WriteFileArgs {
         path: target.clone(),
         content: "New Content".to_string(),
@@ -46,21 +46,14 @@ fn test_smart_append_behavior() {
     };
     let result = Mutator::write_file(root, args, &journal);
     
-    assert!(!result.is_error);
+    assert!(result.is_error);
+    match result.error {
+        Some(e) => assert_eq!(e.code, "collision_error"),
+        None => panic!("Expected collision_error"),
+    }
     
-    // Check advisory
-    assert!(!result.advisory.is_empty());
-    let has_append = result.advisory.iter().any(|a| a.content.as_str().unwrap_or("").contains("Appended"));
-    assert!(has_append, "Expected advisory about Appending. Got: {:?}", result.advisory);
-    
-    // Content should be appended
-    assert_eq!(fs::read_to_string(&target).unwrap(), "Old ContentNew Content");
-    
-    // Journal should record Update (Append)
-    let entries = journal.read_all().unwrap();
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].action, ActionType::Update);
-    assert!(entries[0].backup_ref.is_some());
+    // Content should NOT be changed
+    assert_eq!(fs::read_to_string(&target).unwrap(), "Old Content");
 }
 
 #[test]

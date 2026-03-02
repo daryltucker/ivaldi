@@ -84,6 +84,15 @@ impl ProcessGuard {
             Err(io::Error::other("Process already waited for"))
         }
     }
+
+    /// Wait for the process to exit and capture output
+    pub fn wait_with_output(mut self) -> io::Result<std::process::Output> {
+        if let Some(child) = self.child.take() {
+            child.wait_with_output()
+        } else {
+            Err(io::Error::other("Process already waited for"))
+        }
+    }
 }
 
 impl Drop for ProcessGuard {

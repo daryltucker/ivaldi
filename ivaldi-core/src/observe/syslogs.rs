@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
+use crate::IvaldiResponse;
 use schemars::JsonSchema;
 use std::collections::HashMap;
-use crate::IvaldiResponse;
-use systemd::journal;
 
 /// Log levels for filtering
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, Copy, PartialEq)]
@@ -19,6 +18,7 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
+    #[cfg(target_os = "linux")]
     fn to_priority(self) -> i32 {
         match self {
             LogLevel::Emergency => 0,
@@ -32,6 +32,7 @@ impl LogLevel {
         }
     }
 
+    #[cfg(target_os = "linux")]
     fn from_priority(p: i32) -> Self {
         match p {
             0 => LogLevel::Emergency,
@@ -47,20 +48,6 @@ impl LogLevel {
 }
 
 /// Arguments for the read_syslogs tool
-/// 
-/// **Behavior**: Fetches structured logs from systemd-journald.
-/// 
-/// **Filters**: Supports filtering by service (unit name), log level, time window, and regex pattern.
-/// 
-/// **Safety**:
-/// - Bounded by `limit` (default 100).
-/// - Direct FFI access to journald (no subprocesses).
-/// 
-/// **Usage**: Use to debug service failures, monitor system health, or trace application logs in a production-like environment.
-/// 
-/// **Examples**: 
-/// - `since: "10m"` (last 10 minutes)
-/// - `level: "error"` (only errors and above)
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 pub struct ReadSyslogsArgs {
     /// systemd unit name (e.g. "ivaldi-server")
@@ -98,31 +85,37 @@ pub struct LogEntry {
 
 /// Perform syslog read operation (Journald)
 pub async fn read_syslogs(args: ReadSyslogsArgs) -> IvaldiResponse<serde_json::Value> {
-    // Offload to blocking thread
-    let res = tokio::task::spawn_blocking(move || {
-        read_syslogs_sync(args)
-    }).await;
+    #[cfg(target_os = "linux")]
+    {
+        // Offload to blocking thread
+        let res = tokio::task::spawn_blocking(move || {
+            read_syslogs_sync(args)
+        }).await;
 
-    match res {
-        Ok(response) => response,
-        Err(e) => IvaldiResponse::error("panic", format!("Syslog operation panicked: {}", e)),
+        match res {
+            Ok(response) => response,
+            Err(e) => IvaldiResponse::from_error(crate::error::IvaldiError::Internal(format!("Blocking task failed: {}", e))),
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = args;
+        IvaldiResponse::from_error(crate::error::IvaldiError::Internal("Systemd logs are only available on Linux".to_string()))
     }
 }
 
+#[cfg(target_os = "linux")]
 fn read_syslogs_sync(args: ReadSyslogsArgs) -> IvaldiResponse<serde_json::Value> {
     use crate::error::IvaldiError;
+    use systemd::journal;
 
     let mut journal: journal::Journal = match journal::OpenOptions::default()
         .system(true)
         .open() 
     {
         Ok(j) => j,
-        Err(e) => return IvaldiResponse::from_error(IvaldiError::Systemd(e)),
+        Err(e) => return IvaldiResponse::from_error(IvaldiError::Systemd(e.to_string())),
     };
-
-    // NOTE: This implementation uses the `systemd` crate (FFI) rather than 
-    // spawning `journalctl` as a subprocess. This is safer and more 
-    // efficient as it doesn't create zombie risks.
 
     // Since filter
     if let Some(since_str) = &args.since {
@@ -144,7 +137,7 @@ fn read_syslogs_sync(args: ReadSyslogsArgs) -> IvaldiResponse<serde_json::Value>
         if let Some(d) = duration {
             let start = (chrono::Utc::now() - d).timestamp_micros() as u64;
             if let Err(e) = journal.seek_realtime_usec(start) {
-                return IvaldiResponse::from_error(IvaldiError::Systemd(e));
+                return IvaldiResponse::from_error(IvaldiError::Systemd(e.to_string()));
             }
         }
     } else {
@@ -173,8 +166,10 @@ fn read_syslogs_sync(args: ReadSyslogsArgs) -> IvaldiResponse<serde_json::Value>
                     None
                 };
                 
-                if let Some(s) = &args.service && service_val.as_ref() != Some(s) {
-                    continue;
+                if let Some(s) = &args.service {
+                    if service_val.as_ref() != Some(s) {
+                        continue;
+                    }
                 }
 
                 let priority_val = if let Ok(Some(data)) = journal.get_data("PRIORITY") {
@@ -183,8 +178,10 @@ fn read_syslogs_sync(args: ReadSyslogsArgs) -> IvaldiResponse<serde_json::Value>
                     None
                 }.unwrap_or(6); // Info default
 
-                if let Some(l) = args.level && priority_val > l.to_priority() {
-                    continue;
+                if let Some(l) = args.level {
+                    if priority_val > l.to_priority() {
+                        continue;
+                    }
                 }
 
                 let message = if let Ok(Some(data)) = journal.get_data("MESSAGE") {
@@ -193,8 +190,10 @@ fn read_syslogs_sync(args: ReadSyslogsArgs) -> IvaldiResponse<serde_json::Value>
                     None
                 }.unwrap_or_default();
 
-                if let Some(re) = &regex && !re.is_match(&message) {
-                    continue;
+                if let Some(re) = &regex {
+                    if !re.is_match(&message) {
+                        continue;
+                    }
                 }
 
                 let timestamp = if let Ok(Some(data)) = journal.get_data("__REALTIME_TIMESTAMP") {

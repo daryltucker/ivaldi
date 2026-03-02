@@ -14,8 +14,7 @@ impl Heuristic for GitAwareness {
         if path.exists() && path_str.ends_with(".tmp") {
             let content = serde_json::json!({
                 "git_status": "ignored",
-                "reason": "Temporary file detected. This file is likely gitignored.",
-                "action": "Ignore this file and focus on source files."
+                "reason": "Target path suffix (.tmp) suggests a temporary file, which is often excluded from version control."
             });
             // tool_info takes 1 argument: content
             return Some(AdvisoryMessage::tool_info(content));

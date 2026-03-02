@@ -42,10 +42,13 @@ pub async fn run_command(args: RunCommandArgs, state: &ServerState) -> anyhow::R
         .map_err(|e| anyhow::anyhow!("Policy check error: {}", e))?;
 
     if !allowed {
-        return Ok(IvaldiResponse::error(
+        eprintln!("DEBUG: Policy denied access to command '{}'", args.command);
+        let error_response = IvaldiResponse::error(
             "-32003", // Custom auth error code
             format!("Permission denied: Execution of command '{}' is restricted by security policy.", args.command)
-        ).with_context(serde_json::json!({ "policy": "cedar-denied" })));
+        ).with_context(serde_json::json!({ "policy": "cedar-denied" }));
+        eprintln!("DEBUG: Returning error response: is_error={}, content={:?}", error_response.is_error, error_response.content);
+        return Ok(error_response);
     }
 
     // 3. Execution
@@ -71,6 +74,16 @@ pub async fn run_command(args: RunCommandArgs, state: &ServerState) -> anyhow::R
                         "message": "Command wrote to stderr" 
                     })
                 ));
+            }
+
+            // Buffering Heuristic (Advisory channel)
+            if (args.command.contains("python") || args.args.iter().any(|a| a.ends_with(".py"))) 
+               && result.stdout.is_empty() 
+               && result.exit_code == 0 
+            {
+                advisories.push(AdvisoryMessage::tool_info(serde_json::json!({
+                    "suggestion": "Empty output detected from Python script. If you expected output, ensure stdout is flushed or run python with '-u' for unbuffered output."
+                })));
             }
 
             Ok(IvaldiResponse::success(result).with_advisories(advisories))

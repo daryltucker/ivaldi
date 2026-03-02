@@ -34,6 +34,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository = "https://github.com/daryltucker/ivaldi"
 
 [lib]
 name = "ivaldi_server"
@@ -47,10 +48,7 @@ path = "src/main.rs"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "fs", "io-util", "process", "net"] }
-thiserror = { workspace = true }
-tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-tracing-journald = { workspace = true }
 anyhow = { workspace = true }
 sha2 = { workspace = true }
 schemars = { workspace = true }
@@ -58,6 +56,8 @@ vecdb-common = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.12.2"
 clap = { version = "4.5", features = ["derive"] }
+tracing = { workspace = true, features = ["log"] }
+thiserror = { workspace = true }
 
 ivaldi-core = { path = "../ivaldi-core" }
 reqwest = { version = "0.12", features = ["json"] }
@@ -69,16 +69,25 @@ tower-http = { version = "0.5", features = ["cors", "trace"] }
 # Will need: jsonrpsee or similar
 
 [build-dependencies]
-ivaldi-core = { path = "../ivaldi-core" }
 schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
-clap = { version = "4.5", features = ["derive"] }
-vecq = { git = "https://github.com/daryltucker/vecdb", version = "0.0.9" }
-tokio = { workspace = true, features = ["rt", "macros"] }
+vecq.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "time", "net"] }
+ivaldi-core.workspace = true
 
 [dev-dependencies]
 tempfile = "3.24.0"
-reqwest = { version = "0.12", features = ["json"] }
 
+# Linux-only: tracing-journald requires libsystemd (not available on macOS/Windows)
+[target.'cfg(target_os = "linux")'.dependencies]
+tracing-journald = "0.3"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/ivaldi-{ target }.tar.gz"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/ivaldi-{ target }.zip"
+pkg-fmt = "zip"

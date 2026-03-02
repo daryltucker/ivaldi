@@ -7,10 +7,14 @@
 /// - `minimum` as float (0.0 → 0)
 /// - `$schema` meta field (not needed for tool definitions)
 /// - Adds `additionalProperties: false` to all objects
+/// - **Flattens top-level oneOf/allOf/anyOf** (OpenCode doesn't support these)
 /// 
 /// This is applied at build time to produce clean schemas that work with
-/// all providers (Gemini, Claude, OpenAI, local models).
+/// all providers (Gemini, Claude, OpenAI, OpenCode, local models).
 pub fn normalize_schema(schema: &mut serde_json::Value) {
+    // First, flatten top-level oneOf/allOf/anyOf (before other normalizations)
+    flatten_top_level_union(schema);
+
     if let Some(obj) = schema.as_object_mut() {
         // Remove $schema meta field (not needed in tool inputSchema)
         obj.remove("$schema");
@@ -82,6 +86,87 @@ pub fn normalize_schema(schema: &mut serde_json::Value) {
         // Recurse into items (for array types)
         if let Some(items) = obj.get_mut("items") {
             normalize_schema(items);
+        }
+    }
+}
+
+/// Flatten top-level oneOf/allOf/anyOf into a single object schema.
+/// 
+/// OpenCode (and some other providers) don't support union types at the top level.
+/// This function merges all variants into a single object with all properties,
+/// making each property optional (since it may not be required in all variants).
+/// 
+/// The `action` field is preserved as an enum of all possible values.
+fn flatten_top_level_union(schema: &mut serde_json::Value) {
+    if let Some(obj) = schema.as_object_mut() {
+        // Check for oneOf, allOf, or anyOf at top level
+        for union_key in ["oneOf", "allOf", "anyOf"] {
+            if let Some(union_val) = obj.remove(union_key) {
+                if let Some(variants) = union_val.as_array() {
+                    // Merge all variants into combined properties
+                    let mut all_properties: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+                    let mut action_enum_values: Vec<String> = Vec::new();
+                    
+                    for variant in variants {
+                        if let Some(variant_obj) = variant.as_object() {
+                            // Extract action enum value from this variant
+                            if let Some(props) = variant_obj.get("properties").and_then(|p| p.as_object()) {
+                                if let Some(enum_vals) = props.get("action").and_then(|p| p.get("enum")).and_then(|e| e.as_array()) {
+                                    for val in enum_vals {
+                                        if let Some(s) = val.as_str()
+                                            && !action_enum_values.contains(&s.to_string()) {
+                                            action_enum_values.push(s.to_string());
+                                        }
+                                    }
+                                }
+                                
+                                // Merge all properties from this variant
+                                for (prop_name, prop_schema) in props {
+                                    if prop_name != "action" {
+                                        // Only add if not already present (first definition wins)
+                                        if !all_properties.contains_key(prop_name) {
+                                            all_properties.insert(prop_name.clone(), prop_schema.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Build the flattened schema
+                    // Get existing properties or create empty object
+                    let properties = obj.entry("properties")
+                        .or_insert_with(|| json!({}))
+                        .as_object_mut()
+                        .unwrap();
+                    
+                    // Add action property with combined enum
+                    if !action_enum_values.is_empty() {
+                        properties.insert("action".to_string(), json!({
+                            "type": "string",
+                            "enum": action_enum_values,
+                            "description": "The action to perform"
+                        }));
+                    }
+                    
+                    // Add all merged properties
+                    for (prop_name, prop_schema) in all_properties {
+                        if !properties.contains_key(&prop_name) {
+                            properties.insert(prop_name, prop_schema);
+                        }
+                    }
+                    
+                    // Update required to only require "action" (other fields depend on action)
+                    obj.insert("required".to_string(), json!(["action"]));
+                    
+                    // Ensure it's marked as object type
+                    obj.insert("type".to_string(), json!("object"));
+                    obj.insert("additionalProperties".to_string(), json!(false));
+                }
+                
+                // Only process one union type (oneOf takes precedence)
+                break;
+            }
         }
     }
 }

@@ -22,8 +22,9 @@ pub enum IvaldiError {
     #[error("Git error: {0}")]
     Git(#[from] git2::Error),
 
+    #[cfg(target_os = "linux")]
     #[error("Systemd error: {0}")]
-    Systemd(systemd::Error),
+    Systemd(String),
 
     #[error("Invalid argument: {0}")]
     InvalidArgument(String),
@@ -52,6 +53,9 @@ pub enum IvaldiError {
     #[error("File too large: {0}")]
     FileTooLarge(PathBuf),
 
+    #[error("Write collision: {0}")]
+    WriteCollision(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -66,6 +70,7 @@ impl IvaldiError {
             IvaldiError::Io(_) => "io_error",
             IvaldiError::Serialization(_) => "serialization_error",
             IvaldiError::Git(_) => "git_error",
+            #[cfg(target_os = "linux")]
             IvaldiError::Systemd(_) => "syslog_error",
             IvaldiError::InvalidArgument(_) => "invalid_arg",
             IvaldiError::Session(_) => "session_error",
@@ -74,6 +79,7 @@ impl IvaldiError {
             IvaldiError::Query(_) => "query_error",
             IvaldiError::Regex(_) => "regex_error",
             IvaldiError::Refactoring(_) => "refactoring_error",
+            IvaldiError::WriteCollision(_) => "collision_error",
             IvaldiError::Internal(_) => "internal_error",
         }
     }

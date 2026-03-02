@@ -126,16 +126,14 @@ impl Lister for FsLister {
             entries.sort_by(|a, b| a.name.cmp(&b.name));
         }
         
-        // Safety Cap: If directory has > 1000 items, maybe warn?
+        // Safety Cap: Cap output at 1000 items (heuristic safety).
         if entries.len() > 1000 {
-             let msg = AdvisoryMessage::tool_info(format!("Directory contains {} items. Consider using filters.", entries.len()));
+             let msg = AdvisoryMessage::tool_info(format!("Directory contains {} items. Output truncated to 1000 items. Consider using filters.", entries.len()));
              match advisory {
-                 Some(ref mut _adv) => { /* already have one warning, maybe not override? We can have multiple advisories but strict struct implies one? No, Vec<Advisory> in success. */
-                    // Wait, our builder logic adds *one* advisory. If we want multiple in logic, we need to collect them.
-                    // For now, let's just use the count warning if no read error occured.
-                 },
+                 Some(ref mut _adv) => { },
                  None => advisory = Some(msg),
              }
+             entries.truncate(1000);
         }
 
         let mut response = IvaldiResponse::success(entries);

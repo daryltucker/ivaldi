@@ -13,7 +13,9 @@ use tracing::info;
 use crate::state::ServerState;
 use crate::tools::middleware::Middleware;
 use crate::protocol;
+use crate::response;
 use ivaldi_server::Args;
+use ivaldi_core::response::ErrorDetail;
 
 #[derive(Clone)]
 struct AppState {
@@ -62,11 +64,17 @@ async fn handle_mcp_request(
 
     let result = match method {
         "initialize" => protocol::handle_initialize(&request, &state.server_state),
-        "notifications/initialized" => { 
-            // JSON-RPC notification, no response
-            return (StatusCode::OK, Json(json!({"jsonrpc": "2.0", "result": null}))); 
+        "notifications/initialized" => {
+            // JSON-RPC notification, no response needed, but return success
+            let success_response = ivaldi_core::IvaldiResponse {
+                content: Some(json!(null)),
+                is_error: false,
+                error: None,
+                advisory: vec![],
+            };
+            return (StatusCode::OK, Json(json!({ "jsonrpc": "2.0", "id": id, "result": success_response.content })));
         },
-        "tools/list" => protocol::handle_tools_list(),
+        "tools/list" => protocol::handle_tools_list(&state.server_state),
         "tools/call" => protocol::handle_tools_call(&request, &state.server_state, &state.args, &state.middleware).await,
         _ => {
             if id.is_null() { 
@@ -77,12 +85,117 @@ async fn handle_mcp_request(
     };
 
     match result {
-        Ok(res) => (StatusCode::OK, Json(json!({ "jsonrpc": "2.0", "id": id, "result": res }))),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR, // Or 200 with error object for stricter JSON-RPC compliance?
-            // JSON-RPC 2.0 uses 200 OK for errors usually, but let's stick to standard practice. 
-            // Actually, clients expect 200 OK + error body.
-            Json(json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32601, "message": err } }))
-        )
+        Ok(ivaldi_response) => {
+            // Format response based on mode using the formatter system
+            let is_error = ivaldi_response.is_error;
+            let formatted_result = match *state.server_state.response_mode() {
+                ivaldi_server::cli::ResponseMode::Mcp => {
+                    if is_error {
+                        // Use new MCP module for error formatting
+                        let error_detail = ivaldi_response.error.as_ref().unwrap();
+                        Ok(response::mcp::format_error_content(
+                            error_detail.code.clone(),
+                            error_detail.message.clone()
+                        ))
+                    } else {
+                        // Use new MCP module for success formatting
+                        Ok(response::mcp::format_success_content(
+                            ivaldi_response.content.unwrap_or(Value::Null)
+                        ))
+                    }
+                },
+                ivaldi_server::cli::ResponseMode::Openai => {
+                    if is_error {
+                        // Use new OpenAI module for error formatting
+                        response::openai::format_error_response(ivaldi_response)
+                    } else {
+                        // Use new OpenAI module for success formatting
+                        response::openai::format_success_response(ivaldi_response)
+                    }
+                },
+
+                ivaldi_server::cli::ResponseMode::Auto => {
+                    // Try to detect the appropriate format
+                    if response::openai::detect_openai_request(&request) {
+                        if is_error {
+                            response::openai::format_error_response(ivaldi_response)
+                        } else {
+                            response::openai::format_success_response(ivaldi_response)
+                        }
+                    } else {
+                        // Fallback to MCP using new MCP module
+                        if is_error {
+                            let error_detail = ivaldi_response.error.as_ref().unwrap();
+                            Ok(response::mcp::format_error_content(
+                                error_detail.code.clone(),
+                                error_detail.message.clone()
+                            ))
+                        } else {
+                            Ok(response::mcp::format_success_content(
+                                ivaldi_response.content.unwrap_or(Value::Null)
+                            ))
+                        }
+                    }
+                }
+            }.unwrap_or_else(|err| {
+                json!({ "error": { "message": format!("{}", err), "type": "formatting_error" } })
+            });
+
+            // Wrap MCP responses in JSON-RPC envelope, leave OpenAI/OpenCode as-is
+            let response_to_send = match *state.server_state.response_mode() {
+                ivaldi_server::cli::ResponseMode::Mcp | ivaldi_server::cli::ResponseMode::Auto => {
+                    if is_error {
+                        // For MCP errors, use JSON-RPC error format
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": request.get("id").unwrap_or(&serde_json::Value::Null),
+                            "error": {
+                                "code": formatted_result["error"]["code"].as_str().unwrap_or("-32000").parse().unwrap_or(-32000),
+                                "message": formatted_result["error"]["message"].as_str().unwrap_or("Unknown error")
+                            }
+                        })
+                    } else {
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": request.get("id").unwrap_or(&serde_json::Value::Null),
+                            "result": formatted_result
+                        })
+                    }
+                },
+                _ => formatted_result
+            };
+
+            (StatusCode::OK, Json(response_to_send))
+        },
+        Err(err) => {
+            // Format error response based on mode
+            let error_response = match *state.server_state.response_mode() {
+                ivaldi_server::cli::ResponseMode::Openai => {
+                    // OpenAI mode: format error using direct OpenAI formatting
+                    let error_detail = ErrorDetail {
+                        code: "tool_error".to_string(),
+                        message: err.clone(),
+                        hint: None,
+                        context: None,
+                    };
+                    let ivaldi_error = ivaldi_core::IvaldiResponse {
+                        content: None,
+                        is_error: true,
+                        error: Some(error_detail),
+                        advisory: vec![],
+                    };
+                    response::openai::format_error_response(ivaldi_error)
+                        .unwrap_or_else(|_| {
+                            json!({ "error": { "message": err, "type": "formatting_error" } })
+                        })
+                },
+                _ => {
+                    // MCP mode: standard JSON-RPC error
+                    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32601, "message": err } })
+                }
+            };
+
+            (StatusCode::OK, Json(error_response))
+        }
     }
 }
