@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "protocol": "mcp-2024-11-05",
   "generated_at": "build-time",
   "tools": [
@@ -230,6 +230,126 @@
           "path"
         ],
         "additionalProperties": false
+      }
+    },
+    {
+      "name": "edit_file",
+      "description": "Arguments for the edit_file tool\n\n**Behavior**: Surgically modifies content using selectors. **Selectors (Exactly one required)**: - `query`: `vecq` query string for AST node matching. - `grep`: Regex pattern for matching a single line. - `from_line`/`to_line`: Exact 1-indexed line range.\n\n**Safety**: - **AST-First**: Nodes are more stable than lines for source code. - **Pre-flight Logic**: Heuristics check for git-ignore and syntax errors.\n\n**Usage**: Use to modify specific parts of a file without rewriting the whole content.",
+      "inputSchema": {
+        "properties": {
+          "from_line": {
+            "description": "Start line (1-indexed)",
+            "type": "integer",
+            "minimum": 0
+          },
+          "grep": {
+            "description": "Regex line matching selector",
+            "type": "string"
+          },
+          "path": {
+            "description": "Path to the file to edit",
+            "type": "string"
+          },
+          "query": {
+            "description": "vecq query selector (AST) (e.g., .functions[], .classes[], .structs[], .imports[], .comments[])",
+            "type": "string"
+          },
+          "replacement": {
+            "description": "Replacement content",
+            "type": "string"
+          },
+          "to_line": {
+            "description": "End line (1-indexed)",
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "title": "EditFileArgs",
+        "description": "Arguments for the edit_file tool\n\n**Behavior**: Surgically modifies content using selectors. **Selectors (Exactly one required)**: - `query`: `vecq` query string for AST node matching. - `grep`: Regex pattern for matching a single line. - `from_line`/`to_line`: Exact 1-indexed line range.\n\n**Safety**: - **AST-First**: Nodes are more stable than lines for source code. - **Pre-flight Logic**: Heuristics check for git-ignore and syntax errors.\n\n**Usage**: Use to modify specific parts of a file without rewriting the whole content.",
+        "type": "object",
+        "required": [
+          "path",
+          "replacement"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "edit_files",
+      "description": "Arguments for the edit_files tool\n\n**Behavior**: Transactional multi-file edit. Either all edits apply successfully, or the entire transaction is rolled back. **Safety**: Atomic and journaled. Inherits safety from `edit_file`. **Usage**: Use when a change spans multiple related files and must be applied consistently (e.g., refactoring a trait and all its usages).",
+      "inputSchema": {
+        "definitions": {
+          "EditFileArgs": {
+            "description": "Arguments for the edit_file tool\n\n**Behavior**: Surgically modifies content using selectors. **Selectors (Exactly one required)**: - `query`: `vecq` query string for AST node matching. - `grep`: Regex pattern for matching a single line. - `from_line`/`to_line`: Exact 1-indexed line range.\n\n**Safety**: - **AST-First**: Nodes are more stable than lines for source code. - **Pre-flight Logic**: Heuristics check for git-ignore and syntax errors.\n\n**Usage**: Use to modify specific parts of a file without rewriting the whole content.",
+            "type": "object",
+            "required": [
+              "path",
+              "replacement"
+            ],
+            "properties": {
+              "from_line": {
+                "description": "Start line (1-indexed)",
+                "type": "integer",
+                "minimum": 0
+              },
+              "grep": {
+                "description": "Regex line matching selector",
+                "type": "string"
+              },
+              "path": {
+                "description": "Path to the file to edit",
+                "type": "string"
+              },
+              "query": {
+                "description": "vecq query selector (AST) (e.g., .functions[], .classes[], .structs[], .imports[], .comments[])",
+                "type": "string"
+              },
+              "replacement": {
+                "description": "Replacement content",
+                "type": "string"
+              },
+              "to_line": {
+                "description": "End line (1-indexed)",
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "title": "EditFilesArgs",
+        "description": "Arguments for the edit_files tool\n\n**Behavior**: Transactional multi-file edit. Either all edits apply successfully, or the entire transaction is rolled back. **Safety**: Atomic and journaled. Inherits safety from `edit_file`. **Usage**: Use when a change spans multiple related files and must be applied consistently (e.g., refactoring a trait and all its usages).",
+        "type": "object",
+        "required": [
+          "edits"
+        ],
+        "properties": {
+          "edits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/EditFileArgs"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "undo",
+      "description": "Arguments for the undo tool\n\n**Behavior**: Reverts the last operation performed in the project scope. **Mechanism**: Reads journal, finds last backup, and restores it. **Safety**: - **Checksum Verification**: Ensures file hasn't been modified externally since the last operation. - **Journaling**: The undo itself is logged as a new operation. **Usage**: Call immediately if a `write_file` or `edit_file` had unintended consequences.",
+      "inputSchema": {
+        "properties": {
+          "path": {
+            "description": "Optional path to anchor project root discovery (default: \".\")",
+            "default": ".",
+            "type": "string"
+          }
+        },
+        "title": "UndoArgs",
+        "description": "Arguments for the undo tool\n\n**Behavior**: Reverts the last operation performed in the project scope. **Mechanism**: Reads journal, finds last backup, and restores it. **Safety**: - **Checksum Verification**: Ensures file hasn't been modified externally since the last operation. - **Journaling**: The undo itself is logged as a new operation. **Usage**: Call immediately if a `write_file` or `edit_file` had unintended consequences.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": []
       }
     },
     {

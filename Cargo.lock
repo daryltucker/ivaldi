@@ -1582,7 +1582,7 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "ivaldi-cli"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1598,7 +1598,7 @@ dependencies = [
 
 [[package]]
 name = "ivaldi-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "cedar-policy",
@@ -1628,7 +1628,7 @@ dependencies = [
 
 [[package]]
 name = "ivaldi-server"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "axum",
