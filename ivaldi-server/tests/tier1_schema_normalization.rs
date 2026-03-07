@@ -142,3 +142,78 @@ fn test_find_files_schema_is_clean() {
     assert!(!timeout.as_object().unwrap().contains_key("format"),
         "timeout_ms should not have format field");
 }
+
+/// Test that read_syslogs level property is not incorrectly flattened
+#[test]
+fn test_read_syslogs_level_schema_is_correct() {
+    // Load the embedded runtime manual
+    const MANUAL_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime_manual.json"));
+    let manual: serde_json::Value = serde_json::from_str(MANUAL_JSON).unwrap();
+    
+    let read_syslogs = manual["tools"].as_array().unwrap()
+        .iter()
+        .find(|t| t["name"] == "read_syslogs")
+        .expect("Should have read_syslogs tool");
+    
+    let schema = &read_syslogs["inputSchema"];
+    let props = schema["properties"].as_object().unwrap();
+    
+    // level should NOT have a required "action" field
+    let level = &props["level"];
+    if let Some(obj) = level.as_object() {
+        if let Some(required) = obj.get("required") {
+            if let Some(req_arr) = required.as_array() {
+                assert!(!req_arr.iter().any(|v| v.as_str() == Some("action")), 
+                    "level should not require 'action' property. Current schema: {:?}", level);
+            }
+        }
+        
+        // It should also not be an empty object if it was supposed to be a union
+        // (In the bug case, properties was empty)
+        if obj.get("type").map(|t| t.as_str() == Some("object")).unwrap_or(false) {
+            let properties = obj.get("properties").and_then(|p| p.as_object());
+            if let Some(props_obj) = properties {
+                 assert!(!props_obj.is_empty() || obj.contains_key("anyOf") || obj.contains_key("oneOf"),
+                    "level should have properties or be a union, but was empty object. Current schema: {:?}", level);
+            }
+        }
+    }
+}
+
+/// Test that git_read (polymorphic enum) is correctly flattened
+#[test]
+fn test_git_read_schema_is_flattened() {
+    // Load the embedded runtime manual
+    const MANUAL_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime_manual.json"));
+    let manual: serde_json::Value = serde_json::from_str(MANUAL_JSON).unwrap();
+    
+    let git_read = manual["tools"].as_array().unwrap()
+        .iter()
+        .find(|t| t["name"] == "git_read")
+        .expect("Should have git_read tool");
+    
+    let schema = &git_read["inputSchema"];
+    
+    // It should NOT have anyOf/oneOf/allOf at the top level
+    assert!(schema.get("anyOf").is_none(), "git_read should be flattened");
+    assert!(schema.get("oneOf").is_none(), "git_read should be flattened");
+    assert!(schema.get("allOf").is_none(), "git_read should be flattened");
+    
+    // It should have an 'action' property with enum values
+    let props = schema["properties"].as_object().expect("git_read should have properties");
+    let action = &props["action"];
+    assert!(action["enum"].as_array().is_some(), "git_read action should have enum values");
+    
+    let enum_vals: Vec<String> = action["enum"].as_array().unwrap()
+        .iter().map(|v| v.as_str().unwrap().to_string()).collect();
+    
+    assert!(enum_vals.contains(&"log".to_string()));
+    assert!(enum_vals.contains(&"diff".to_string()));
+    assert!(enum_vals.contains(&"blame".to_string()));
+    assert!(enum_vals.contains(&"search".to_string()));
+    assert!(enum_vals.contains(&"raw".to_string()));
+    
+    // It should require 'action'
+    let required = schema["required"].as_array().expect("git_read should have required fields");
+    assert!(required.iter().any(|v| v.as_str() == Some("action")));
+}

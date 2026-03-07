@@ -34,6 +34,7 @@ fn test_find_files_respects_depth_and_pattern() {
         timeout_ms: 1000,
         enable_gitignore: false,
         respect_aiignore: false,
+        respect_agentignore: false,
     };
     
     let result = FsNavigator::find_files(args);
@@ -56,6 +57,7 @@ fn test_find_files_respects_depth_and_pattern() {
         timeout_ms: 2000,
         enable_gitignore: false,
         respect_aiignore: true,
+        respect_agentignore: true,
     };
     let result = FsNavigator::find_files(args_glob);
     let files = result.content.unwrap();
@@ -120,9 +122,10 @@ fn test_list_dir_metadata() {
     let args = ListDirArgs {
         path: root.to_path_buf(),
         sort: true,
-        show_hidden: false,
+        show_hidden: true,
         enable_gitignore: false,
         respect_aiignore: true,
+        respect_agentignore: true,
     };
     let result = FsLister::list_dir(args);
     assert!(!result.is_error);

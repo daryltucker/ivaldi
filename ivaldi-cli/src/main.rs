@@ -73,6 +73,7 @@ fn main() -> anyhow::Result<()> {
                 timeout_ms: 5000,
                 enable_gitignore: !no_ignore,
                 respect_aiignore: true,
+                respect_agentignore: true,
             };
             let response = FsNavigator::find_files(args);
             print_find_results(&response, cli.json);
@@ -97,6 +98,7 @@ fn main() -> anyhow::Result<()> {
                  show_hidden: all,
                  enable_gitignore: false,
                  respect_aiignore: true,
+                 respect_agentignore: true,
              };
              let response = FsLister::list_dir(args);
              print_list_results(&response, cli.json);

@@ -54,7 +54,7 @@ sha2 = { workspace = true }
 schemars = { workspace = true }
 vecdb-common = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
-regex = "1.12.2"
+regex = "1.12.3"
 clap = { version = "4.5", features = ["derive"] }
 tracing = { workspace = true, features = ["log"] }
 thiserror = { workspace = true }
@@ -78,7 +78,7 @@ tokio = { workspace = true, features = ["rt", "macros", "time", "net"] }
 ivaldi-core.workspace = true
 
 [dev-dependencies]
-tempfile = "3.24.0"
+tempfile = "3.26.0"
 
 # Linux-only: tracing-journald requires libsystemd (not available on macOS/Windows)
 [target.'cfg(target_os = "linux")'.dependencies]

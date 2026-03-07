@@ -43,23 +43,23 @@ glob.workspace = true
 ignore.workspace = true
 tracing.workspace = true
 fs2 = "0.4.3"
-uuid = { version = "1.19.0", features = ["v4", "serde"] }
-chrono = { version = "0.4.42", features = ["serde"] }
-schemars = { version = "0.8.21", features = ["chrono"] }
+uuid = { version = "1.21.0", features = ["v4", "serde"] }
+chrono = { version = "0.4.44", features = ["serde"] }
+schemars = { version = "0.8.22", features = ["chrono"] }
 sha2.workspace = true
-tempfile = "3.24.0"
-regex = "1.12.2"
+tempfile = "3.26.0"
+regex = "1.12.3"
 vecq.workspace = true
 vecdb-common.workspace = true
 tokio.workspace = true
 strsim = "0.11.1"
-libc = "0.2.180"
-toml = "0.9.11"
+libc = "0.2.182"
+toml = "0.9.12"
 git2 = "0.19"
-cedar-policy = "4.8.2"
+cedar-policy = "4.9.1"
 
 [dev-dependencies]
-tempfile = "3.24.0"
+tempfile = "3.26.0"
 
 # Linux-only: systemd crate requires libsystemd
 [target.'cfg(target_os = "linux")'.dependencies]

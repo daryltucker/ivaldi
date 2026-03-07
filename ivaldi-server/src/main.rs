@@ -354,19 +354,8 @@ async fn main() -> anyhow::Result<()> {
                                       tracing::trace!("Response mode detected: {:?}", current_mode);
                                       let formatted_result = match *current_mode {
                                           ivaldi_server::cli::ResponseMode::Mcp => {
-                                              if is_error {
-                                                  // Use new MCP module for error formatting
-                                                  let error_detail = ivaldi_response.error.as_ref().unwrap();
-                                                  Ok(response::mcp::format_error_content(
-                                                      error_detail.code.clone(),
-                                                      error_detail.message.clone()
-                                                  ))
-                                              } else {
-                                                  // Use new MCP module for success formatting
-                                                  Ok(response::mcp::format_success_content(
-                                                      ivaldi_response.content.unwrap_or(Value::Null)
-                                                  ))
-                                              }
+                                              // Use format_tool_response which handles both success/error and advisories
+                                              Ok(response::mcp::format_tool_response(ivaldi_response))
                                           },
                                           ivaldi_server::cli::ResponseMode::Openai => {
                                               if is_error {
@@ -388,17 +377,7 @@ async fn main() -> anyhow::Result<()> {
                                                   }
                                               } else {
                                                   // Fallback to MCP using new MCP module
-                                                  if is_error {
-                                                      let error_detail = ivaldi_response.error.as_ref().unwrap();
-                                                      Ok(response::mcp::format_error_content(
-                                                          error_detail.code.clone(),
-                                                          error_detail.message.clone()
-                                                      ))
-                                                  } else {
-                                                      Ok(response::mcp::format_success_content(
-                                                          ivaldi_response.content.unwrap_or(Value::Null)
-                                                      ))
-                                                  }
+                                                  Ok(response::mcp::format_tool_response(ivaldi_response))
                                               }
                                           }
                                      }.unwrap_or_else(|_| {

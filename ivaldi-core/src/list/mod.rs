@@ -49,6 +49,10 @@ pub struct ListDirArgs {
     /// Whether to evaluate and restrict based on .gitignore (default: false)
     #[serde(default = "default_false")]
     pub enable_gitignore: bool,
+
+    /// Whether to respect .agentignore (default: true)
+    #[serde(default = "default_true")]
+    pub respect_agentignore: bool,
 }
 
 fn default_list_path() -> PathBuf { PathBuf::from(".") }
@@ -87,6 +91,9 @@ impl Lister for FsLister {
 
         if args.respect_aiignore {
             walker.add_custom_ignore_filename(".aiignore");
+        }
+        if args.respect_agentignore {
+            walker.add_custom_ignore_filename(".agentignore");
         }
 
         let mut entries = Vec::new();

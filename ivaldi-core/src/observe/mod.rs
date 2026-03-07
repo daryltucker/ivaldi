@@ -273,6 +273,37 @@ impl Observer for FsObserver {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_read_readme() {
+        // Need to find README.md relative to current dir during test
+        // Cargo tests run in the crate root (ivaldi-core)
+        // README.md is in project root (../README.md)
+        let path = PathBuf::from("../README.md");
+        if !path.exists() {
+            // Try current dir just in case
+            let path = PathBuf::from("README.md");
+            if !path.exists() {
+                 return; // skip if can't find it
+            }
+        }
+        
+        let args = ReadFileArgs {
+            path: PathBuf::from("../README.md"),
+            ..Default::default()
+        };
+        let response = FsObserver::read_file(args);
+        assert!(!response.is_error, "Response should not be an error: {:?}", response.error);
+        let content = response.content.expect("Response should have content");
+        assert!(!content.content.is_empty(), "Content should not be empty");
+        assert!(content.info.lines_total > 0, "Should have more than 0 lines");
+    }
+}
+
 // ============================================================================
 // SELECTOR HELPER FUNCTIONS
 // ============================================================================

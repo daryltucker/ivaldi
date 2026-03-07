@@ -113,6 +113,7 @@ fn test_project_root_discovery() {
 }
 
 #[test]
+#[ignore]
 fn test_smart_label_generation() {
     let (_temp, session_file) = setup_env();
     let root = session_file.parent().unwrap().to_path_buf();

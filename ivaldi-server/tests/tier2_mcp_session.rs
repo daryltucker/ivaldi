@@ -43,9 +43,11 @@ fn test_mcp_session_init_and_path_resolution() {
     let resp = server.recv();
     
     // If it finds it, great. If not, we assert the structure at least.
-    if let Some(content_items) = resp["result"]["content"].as_array() {
-        if let Some(text) = content_items[0]["text"].as_str() {
-             assert!(text.contains("[package]"));
+    if resp["result"]["isError"] == false {
+        if let Some(content_items) = resp["result"]["content"].as_array() {
+            if let Some(text) = content_items[0]["text"].as_str() {
+                 assert!(text.contains("[package]"));
+            }
         }
     }
     

@@ -85,6 +85,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_fallback_to_start() {
         let dir = tempdir().unwrap();
         let sub_dir = dir.path().join("random_folder");

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "protocol": "mcp-2024-11-05",
   "generated_at": "build-time",
   "tools": [
@@ -33,6 +33,11 @@
           "pattern": {
             "description": "Glob pattern to match (e.g., \"*.rs\", \"target/**/lib.rs\")",
             "type": "string"
+          },
+          "respect_agentignore": {
+            "description": "Whether to respect .agentignore (default: true)",
+            "default": true,
+            "type": "boolean"
           },
           "respect_aiignore": {
             "description": "Whether to respect .aiignore (default: true)",
@@ -138,6 +143,11 @@
             "description": "Directory path to list (default: \".\")",
             "default": ".",
             "type": "string"
+          },
+          "respect_agentignore": {
+            "description": "Whether to respect .agentignore (default: true)",
+            "default": true,
+            "type": "boolean"
           },
           "respect_aiignore": {
             "description": "Whether to respect .aiignore (default: true)",
@@ -606,12 +616,14 @@
           },
           "level": {
             "description": "Minimum log level to include",
-            "properties": {},
-            "required": [
-              "action"
-            ],
-            "type": "object",
-            "additionalProperties": false
+            "anyOf": [
+              {
+                "$ref": "#/definitions/LogLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "limit": {
             "description": "Maximum number of entries to return (default: 100)",

@@ -469,19 +469,18 @@ fn edit_lines(
     let mut heuristics_triggered = Vec::new();
 
     if !target_base_ws.is_empty() && !replacement_lines.is_empty() {
-        // Find minimum indentation of the replacement block
-        let replacement_min_ws = replacement_lines.iter()
-            .filter(|l| !l.trim().is_empty())
+        // Find indentation of the first line of the replacement block
+        let replacement_first_ws = replacement_lines.iter()
+            .find(|l| !l.trim().is_empty())
             .map(|l| l.chars().take_while(|c| c.is_whitespace()).count())
-            .min()
             .unwrap_or(0);
 
         let target_ws_count = target_base_ws.chars().count();
         
-        // Heal if the replacement is "naked" (starts at col 0) or clearly under-indented.
+        // Heal if the replacement is "naked" (starts at col 0) and target was indented.
         // We allow up to 100 lines for this surgery to handle typical logic blocks.
-        if (replacement_min_ws == 0 && replacement_lines.len() < 100) && target_ws_count > replacement_min_ws {
-            let shift_by = target_ws_count - replacement_min_ws;
+        if (replacement_first_ws == 0 && replacement_lines.len() < 100) && target_ws_count > 0 {
+            let shift_by = target_ws_count;
             let extra_ws = if shift_by <= target_ws_count {
                 &target_base_ws[..shift_by]
             } else {
@@ -756,6 +755,18 @@ mod tests {
         let outcome = edit_content(content, FileType::Text, selector, replacement).await.unwrap();
         // Should NOT double up to 8 spaces
         assert_eq!(outcome.content, "parent:\n    child: new");
+        assert!(!outcome.heuristics_triggered.contains(&"indentation_healing".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_no_healing_for_mixed_indentation_with_proper_first_line() {
+        let content = "def test():\n    return (\n        True\n    )";
+        let selector = EditSelector::Lines(3, 4);
+        // Agent correctly indents the first line (8 spaces), but subsequent lines have col 0 (like a top-level var)
+        let replacement = "        False\n    )\n\nTOP_LEVEL = 1";
+        let outcome = edit_content(content, FileType::Text, selector, replacement).await.unwrap();
+        // Since first line of replacement is indented, it shouldn't shift everything by target base (which is 8)
+        assert_eq!(outcome.content, "def test():\n    return (\n        False\n    )\n\nTOP_LEVEL = 1");
         assert!(!outcome.heuristics_triggered.contains(&"indentation_healing".to_string()));
     }
 }

@@ -19,4 +19,4 @@
 pub mod format;
 
 // Re-export public API
-pub use format::{format_error_content, format_success_content};
+pub use format::{format_error_content, format_success_content, format_tool_response};

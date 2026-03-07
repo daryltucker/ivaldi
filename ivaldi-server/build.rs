@@ -129,6 +129,7 @@ fn main() -> anyhow::Result<()> {
     fs::write(&meta_schema_path, serde_json::to_string_pretty(&meta_schema)?)?;
 
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=build_schemas.rs");
     Ok(())
 }
 

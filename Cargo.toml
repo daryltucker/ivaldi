@@ -26,7 +26,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 authors = ["Daryl Tucker"]
 license = "MIT"
@@ -36,18 +36,18 @@ repository = "https://github.com/daryltucker/ivaldi"
 # Serialization
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-sha2 = "0.10.8"
-schemars = "0.8.21"
+sha2 = "0.10.9"
+schemars = "0.8.22"
 
 # Error handling
-anyhow = "1.0.100"
-thiserror = "2.0.17"
+anyhow = "1.0.102"
+thiserror = "2.0.18"
 
 # Async runtime
-tokio = { version = "1.49.0", features = ["full"] }
+tokio = { version = "1.50.0", features = ["full"] }
 
 # CLI
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.60", features = ["derive"] }
 
 # File system
 walkdir = "2.5"
@@ -60,8 +60,8 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 
 # Internal
 ivaldi-core = { path = "ivaldi-core" } # Correct for local member
-vecdb-common = { git = "https://github.com/daryltucker/vecdb", tag = "v1.0.0" }
-vecq = { git = "https://github.com/daryltucker/vecdb", tag = "v1.0.0" }
+vecdb-common = { git = "https://github.com/daryltucker/vecdb", branch = "v1.0.1" }
+vecq = { git = "https://github.com/daryltucker/vecdb", branch = "v1.0.1" }
 
 [workspace.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/ivaldi-{ target }.tar.gz"

@@ -60,7 +60,7 @@ fn test_mcp_tool_call_success_format() {
         "isError": false,
         "content": [{
             "type": "text",
-            "text": "{\"stdout\":\"Hello World\",\"exit_code\":0}"
+            "text": "{\n  \"stdout\": \"Hello World\",\n  \"exit_code\": 0\n}"
         }]
     });
 
@@ -83,6 +83,10 @@ fn test_mcp_error_format() {
 
     let expected = json!({
         "isError": true,
+        "content": [{
+            "type": "text",
+            "text": "Error [-32003]: Permission denied"
+        }],
         "error": {
             "code": "-32003",
             "message": "Permission denied"

@@ -52,6 +52,7 @@ fn test_simulation_scaffolding_workflow() {
         show_hidden: false, // Default hides .ivaldi
         enable_gitignore: false,
         respect_aiignore: true,
+        respect_agentignore: true,
     };
     let entries = FsLister::list_dir(list_args).content.unwrap();
     

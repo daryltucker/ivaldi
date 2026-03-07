@@ -57,6 +57,10 @@ pub struct FindFilesArgs {
     /// Whether to respect .aiignore (default: true)
     #[serde(default = "default_true")]
     pub respect_aiignore: bool,
+
+    /// Whether to respect .agentignore (default: true)
+    #[serde(default = "default_true")]
+    pub respect_agentignore: bool,
 }
 
 // Defaults for Serde
@@ -97,6 +101,9 @@ impl Navigator for FsNavigator {
 
         if args.respect_aiignore {
              walker.add_custom_ignore_filename(".aiignore");
+        }
+        if args.respect_agentignore {
+             walker.add_custom_ignore_filename(".agentignore");
         }
 
         let mut matches = Vec::new();

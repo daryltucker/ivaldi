@@ -133,6 +133,12 @@ fn flatten_top_level_union(schema: &mut serde_json::Value) {
                         }
                     }
                     
+                    // Bail out if no "action" enum values were found (not a polymorphic action object)
+                    if action_enum_values.is_empty() {
+                        obj.insert(union_key.to_string(), json!(variants));
+                        return;
+                    }
+                    
                     // Build the flattened schema
                     // Get existing properties or create empty object
                     let properties = obj.entry("properties")
