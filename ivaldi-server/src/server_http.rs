@@ -67,8 +67,9 @@ async fn handle_mcp_request(
         "notifications/initialized" => {
             // JSON-RPC notification, no response needed, but return success
             let success_response = ivaldi_core::IvaldiResponse {
-                content: Some(json!(null)),
+                content: Some(json!({})),
                 is_error: false,
+                ui_diffs: vec![],
                 error: None,
                 advisory: vec![],
             };
@@ -181,6 +182,7 @@ async fn handle_mcp_request(
                     let ivaldi_error = ivaldi_core::IvaldiResponse {
                         content: None,
                         is_error: true,
+                        ui_diffs: vec![],
                         error: Some(error_detail),
                         advisory: vec![],
                     };

@@ -152,6 +152,7 @@ pub async fn toggle_checkbox(
         IvaldiResponse {
             is_error: true,
             content: None,
+            ui_diffs: Vec::new(),
             advisory: edit_result.advisory,
             error: edit_result.error,
         }

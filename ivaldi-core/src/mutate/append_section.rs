@@ -170,6 +170,7 @@ async fn append_to_markdown_section(
             IvaldiResponse {
                 is_error: edit_result.is_error,
                 content: None,
+                ui_diffs: Vec::new(),
                 advisory: edit_result.advisory,
                 error: edit_result.error,
             }
@@ -296,6 +297,7 @@ async fn append_to_code_section(
             IvaldiResponse {
                 is_error: edit_result.is_error,
                 content: None,
+                ui_diffs: Vec::new(),
                 advisory: edit_result.advisory,
                 error: edit_result.error,
             }

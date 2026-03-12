@@ -104,6 +104,7 @@ fn test_openai_success_format() {
     let ivaldi_response = IvaldiResponse {
         content: Some(input_content.clone()),
         is_error: false,
+        ui_diffs: vec![],
         error: None,
         advisory: vec![],
     };
@@ -139,6 +140,7 @@ fn test_openai_error_format() {
     let ivaldi_response = IvaldiResponse {
         content: None,
         is_error: true,
+        ui_diffs: vec![],
         error: Some(error_detail),
         advisory: vec![],
     };

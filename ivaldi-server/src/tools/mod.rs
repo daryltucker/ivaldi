@@ -45,6 +45,7 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
         "find_files" => {
             let mut args: FindFilesArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
             
             if state.config().enable_gitignore && !args.enable_gitignore {
                 args.enable_gitignore = true;
@@ -54,20 +55,23 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             Ok(serde_json::to_value(response).unwrap())
         },
         "read_files" => {
-            let args: ReadFilesArgs = serde_json::from_value(args)
+            let mut args: ReadFilesArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            for p in &mut args.paths { *p = ivaldi_core::util::path::expand_tilde(&p); }
             let response = FsObserver::read_files(args);
             Ok(serde_json::to_value(response).unwrap())
         },
         "read_file" => {
-            let args: ReadFileArgs = serde_json::from_value(args)
+            let mut args: ReadFileArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
             let response = FsObserver::read_file(args);
             Ok(serde_json::to_value(response).unwrap())
         },
         "list_dir" => {
             let mut args: ListDirArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
             
             if state.config().enable_gitignore && !args.enable_gitignore {
                 args.enable_gitignore = true;
@@ -84,8 +88,9 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             Ok(serde_json::to_value(response).unwrap())
         },
         "write_file" => {
-            let args: WriteFileArgs = serde_json::from_value(args)
+            let mut args: WriteFileArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
             
             // Lifecycle extraction
             let start = args.path.parent().unwrap_or(&args.path);
@@ -97,8 +102,9 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             Ok(serde_json::to_value(response).unwrap())
         },
         "edit_file" => {
-            let args: EditFileArgs = serde_json::from_value(args)
+            let mut args: EditFileArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
 
             // Lifecycle extraction
             let start = args.path.parent().unwrap_or(&args.path);
@@ -113,8 +119,9 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
         },
         "edit_files" => {
             use ivaldi_core::mutate::EditFilesArgs; // Import local to block if needed, or global
-            let args: EditFilesArgs = serde_json::from_value(args)
+            let mut args: EditFilesArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            for edit in &mut args.edits { edit.path = ivaldi_core::util::path::expand_tilde(&edit.path); }
 
             // Lifecycle extraction (use path of first edit as anchor)
             if args.edits.is_empty() {
@@ -130,8 +137,9 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             Ok(serde_json::to_value(response).unwrap())
         },
         "edit_json" => {
-            let args: EditJsonArgs = serde_json::from_value(args)
+            let mut args: EditJsonArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
 
             // Lifecycle extraction
             let start = args.path.parent().unwrap_or(&args.path);
@@ -143,8 +151,9 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             Ok(serde_json::to_value(response).unwrap())
         },
         "toggle_checkbox" => {
-            let args: ToggleCheckboxArgs = serde_json::from_value(args)
+            let mut args: ToggleCheckboxArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
 
             // Lifecycle extraction
             let start = args.path.parent().unwrap_or(&args.path);
@@ -156,8 +165,9 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             Ok(serde_json::to_value(response).unwrap())
         },
         "append_to_section" => {
-            let args: AppendToSectionArgs = serde_json::from_value(args)
+            let mut args: AppendToSectionArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
 
             // Lifecycle extraction
             let start = args.path.parent().unwrap_or(&args.path);
@@ -169,8 +179,9 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             Ok(serde_json::to_value(response).unwrap())
         },
         "undo" => {
-             let args: UndoArgs = serde_json::from_value(args)
+             let mut args: UndoArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+             args.path = ivaldi_core::util::path::expand_tilde(args.path);
              
              let root = find_project_root(&args.path);
              
@@ -204,8 +215,9 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
 
         // Analysis Tools
         "analyze_dir" => {
-            let args: AnalyzeDirArgs = serde_json::from_value(args)
+            let mut args: AnalyzeDirArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
             
             // Heuristic compatibility: apply gitignore default from config if needed
             // (AnalyzeDirArgs has ignore_patterns, but we might want to respect global config too)
@@ -215,15 +227,17 @@ pub async fn execute_tool(name: &str, args: Value, state: &crate::state::ServerS
             Ok(serde_json::to_value(response).unwrap())
         },
         "analyze_file" => {
-            let args: AnalyzeFileArgs = serde_json::from_value(args)
+            let mut args: AnalyzeFileArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
             
             let response = Analyzer::analyze_file(args);
             Ok(serde_json::to_value(response).unwrap())
         },
         "search_code" => {
-            let args: SearchCodeArgs = serde_json::from_value(args)
+            let mut args: SearchCodeArgs = serde_json::from_value(args)
                 .map_err(|e| ToolError::InvalidArgs(e.to_string()))?;
+            args.path = ivaldi_core::util::path::expand_tilde(args.path);
 
             // Add configurable timeout protection to prevent client timeouts/crashes
             // IVALDI_SEARCH_TIMEOUT: Timeout for code search operations in seconds (default: 30)
