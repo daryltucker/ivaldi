@@ -58,6 +58,10 @@ pub struct IvaldiResponse<T> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<T>,
     
+    /// Visual diffs intended for human consumption (zero-context UI)
+    #[serde(default)]
+    pub ui_diffs: Vec<String>,
+    
     /// Advisory messages - the third channel
     /// Always an array for consistent parsing
     #[serde(default)]
@@ -96,6 +100,7 @@ impl<T> IvaldiResponse<T> {
         Self {
             is_error: false,
             content: Some(content),
+            ui_diffs: Vec::new(),
             advisory: Vec::new(),
             error: None,
         }
@@ -106,6 +111,7 @@ impl<T> IvaldiResponse<T> {
         Self {
             is_error: false,
             content: Some(content),
+            ui_diffs: Vec::new(),
             advisory: advisories,
             error: None,
         }
@@ -116,6 +122,7 @@ impl<T> IvaldiResponse<T> {
         Self {
             is_error: true,
             content: None,
+            ui_diffs: Vec::new(),
             advisory: Vec::new(),
             error: Some(ErrorDetail {
                 code: code.into(),
@@ -131,6 +138,7 @@ impl<T> IvaldiResponse<T> {
         Self {
             is_error: true,
             content: None,
+            ui_diffs: Vec::new(),
             advisory: Vec::new(),
             error: Some(ErrorDetail {
                 code: err.code().to_string(),
@@ -144,6 +152,12 @@ impl<T> IvaldiResponse<T> {
     /// Add an advisory message
     pub fn with_advisory(mut self, advisory: AdvisoryMessage) -> Self {
         self.advisory.push(advisory);
+        self
+    }
+    
+    /// Add a UI visual diff
+    pub fn with_ui_diff(mut self, diff: impl Into<String>) -> Self {
+        self.ui_diffs.push(diff.into());
         self
     }
     

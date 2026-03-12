@@ -98,6 +98,9 @@ pub async fn edit_file(
 
     // 3. Write via write_file
     // Construct WriteFileArgs
+    let path_display = args.path.display().to_string();
+    let final_content = outcome.content.clone();
+    
     let write_args = WriteFileArgs {
         path: args.path,
         content: outcome.content,
@@ -107,6 +110,14 @@ pub async fn edit_file(
 
     let mut response = write_file(root, write_args, journal);
     response.advisory.extend(advisories);
+    
+    // 4. Generate Visual UI Diff
+    let diff = similar::TextDiff::from_lines(&content, &final_content);
+    let unified_diff = diff.unified_diff().context_radius(3).header(&path_display, &path_display).to_string();
+    if !unified_diff.is_empty() {
+        response.ui_diffs.push(format!("```diff\n{}\n```", unified_diff));
+    }
+    
     response
 }
 
@@ -122,6 +133,7 @@ pub async fn edit_files(
     // This allows multiple edits to the same file to build upon each other instead
     // of overwriting each other.
     let mut file_states: std::collections::HashMap<PathBuf, String> = std::collections::HashMap::new();
+    let mut original_states: std::collections::HashMap<PathBuf, String> = std::collections::HashMap::new();
     let mut unique_paths = Vec::new();
 
     for edit_arg in args.edits {
@@ -134,6 +146,7 @@ pub async fn edit_files(
                 Err(e) => return IvaldiResponse::error("read_error", format!("Failed to read {}: {}", edit_arg.path.display(), e)),
             };
             unique_paths.push(edit_arg.path.clone());
+            original_states.insert(edit_arg.path.clone(), disk_content.clone());
             disk_content
         };
         
@@ -161,11 +174,11 @@ pub async fn edit_files(
     
     // Convert cached final states to WriteFileArgs
     let mut prepared_writes = Vec::new();
-    for path in unique_paths {
-        if let Some(content) = file_states.remove(&path) {
+    for path in &unique_paths {
+        if let Some(content) = file_states.get(path) {
             prepared_writes.push(WriteFileArgs {
-                path,
-                content,
+                path: path.clone(),
+                content: content.clone(),
                 overwrite: true,
                 append: false,
             });
@@ -204,5 +217,17 @@ pub async fn edit_files(
             return IvaldiResponse::error("transaction_failed", format!("Transaction aborted. Rolled back {} changes. Cause: {}", undo_count, err));
     }
     
-    IvaldiResponse::success(success_paths)
+    // Generate UI Diffs for the transaction
+    let mut response = IvaldiResponse::success(success_paths);
+    for path in &unique_paths {
+        if let (Some(orig), Some(new)) = (original_states.get(path), file_states.get(path)) {
+            let diff = similar::TextDiff::from_lines(orig, new);
+            let unified_diff = diff.unified_diff().context_radius(3).header(&path.display().to_string(), &path.display().to_string()).to_string();
+            if !unified_diff.is_empty() {
+                response.ui_diffs.push(format!("```diff\n{}\n```", unified_diff));
+            }
+        }
+    }
+    
+    response
 }

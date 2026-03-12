@@ -38,16 +38,33 @@ pub fn format_tool_response(response: IvaldiResponse<Value>) -> Value {
         
         content_items.push(json!({
             "type": "text",
-            "text": content_str
+            "text": content_str,
+            "annotations": {
+                "audience": ["assistant"]
+            }
         }));
     } else if response.is_error {
         // Add Error Message as first content item
         if let Some(err) = &response.error {
             content_items.push(json!({
                 "type": "text",
-                "text": format!("Error [{}]: {}", err.code, err.message)
+                "text": format!("Error [{}]: {}", err.code, err.message),
+                "annotations": {
+                    "audience": ["assistant"]
+                }
             }));
         }
+    }
+    
+    // 1.5 Add Visual UI Diffs (For humans only)
+    for diff in response.ui_diffs {
+        content_items.push(json!({
+            "type": "text",
+            "text": diff,
+            "annotations": {
+                "audience": ["user"]
+            }
+        }));
     }
     
     // 2. Add Advisories

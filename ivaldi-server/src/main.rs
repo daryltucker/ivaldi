@@ -323,6 +323,7 @@ async fn main() -> anyhow::Result<()> {
                                 Ok(ivaldi_core::IvaldiResponse {
                                     content: Some(json!({})),
                                     is_error: false,
+                                    ui_diffs: vec![],
                                     error: None,
                                     advisory: vec![],
                                 })
@@ -336,6 +337,7 @@ async fn main() -> anyhow::Result<()> {
                                     return Ok(ivaldi_core::IvaldiResponse {
                                         content: Some(json!({})),
                                         is_error: false,
+                                        ui_diffs: vec![],
                                         error: None,
                                         advisory: vec![],
                                     });
@@ -421,6 +423,7 @@ async fn main() -> anyhow::Result<()> {
                                             let ivaldi_error = ivaldi_core::IvaldiResponse {
                                                 content: None,
                                                 is_error: true,
+                                                ui_diffs: vec![],
                                                 error: Some(error_detail),
                                                 advisory: vec![],
                                             };

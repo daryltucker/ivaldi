@@ -24,6 +24,7 @@ pub fn write_file(
     let mut backup_ref: Option<PathBuf> = None;
     let mut checksum_before: Option<String> = None;
     let mut action_type = ActionType::Create; // Default
+    let mut original_content = String::new();
 
 
     // 2. HEURISTICS: Git Awareness & Multi-Advisories
@@ -51,6 +52,7 @@ pub fn write_file(
                 Ok(c) => c,
                 Err(e) => return IvaldiResponse::error("read_error", format!("Failed to read existing file for append: {}", e)),
             };
+            original_content = existing_content.clone();
             
             // Count lines before append
             let lines_before = existing_content.lines().count();
@@ -77,6 +79,7 @@ pub fn write_file(
             // OVERWRITE MODE (The Hammer - cat >)
             // Agent explicitly asked to destroy the file contents and write fresh.
             action_type = ActionType::Update;
+            original_content = fs::read_to_string(&target_path).unwrap_or_default();
             
             // BACKUP (using root)
             match create_backup(root, &target_path) {
@@ -152,5 +155,14 @@ pub fn write_file(
          return IvaldiResponse::from_error(IvaldiError::Journal(format!("Write succeeded but journal failed: {}", e)));
     }
 
-    IvaldiResponse::success_with_advisory(target_path, advisories)
+    let mut response = IvaldiResponse::success_with_advisory(target_path, advisories);
+    
+    // 4. Generate Visual UI Diff
+    let diff = similar::TextDiff::from_lines(&original_content, &final_content);
+    let unified_diff = diff.unified_diff().context_radius(3).header(&path.display().to_string(), &path.display().to_string()).to_string();
+    if !unified_diff.is_empty() {
+        response.ui_diffs.push(format!("```diff\n{}\n```", unified_diff));
+    }
+    
+    response
 }

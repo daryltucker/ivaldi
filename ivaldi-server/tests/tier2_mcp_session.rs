@@ -369,3 +369,114 @@ fn test_tool_namespace_prefixing() {
     unsafe { env::remove_var("IVALDI_TOOL_NAMESPACE") };
     unsafe { env::remove_var("IVALDI_RESPONSE_MODE") };
 }
+
+#[test]
+fn test_mcp_tilde_path_expansion() {
+    use std::env;
+
+    // 1. Save original HOME to restore later
+    let original_home = env::var("HOME").ok();
+
+    // 2. Create a dedicated true temp directory for the fake home
+    let fake_home_dir = tempfile::tempdir().expect("Failed to create fake home dir");
+    let temp_home = fake_home_dir.path();
+    
+    // 3. Set HOME env var safely for the duration of the test
+    unsafe { env::set_var("HOME", temp_home.to_str().unwrap()) };
+
+    // 4. Initialize server (it will inherit the new HOME)
+    let mut server = StdioTestServer::new();
+    server.initialize();
+
+    // 5. Try to write a file using a tilde path
+    let write_req = json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": "write_file",
+            "arguments": {
+                "path": "~/tilde.txt",
+                "content": "TESTING_TILDE"
+            }
+        }
+    });
+
+    server.send(write_req);
+    let resp = server.recv();
+    assert!(resp.get("error").is_none(), "Expected no error writing to tilde path");
+
+    // 6. Verify it was written to the fake home dir
+    assert!(temp_home.join("tilde.txt").exists(), "tilde.txt was not created in fake HOME");
+    let content = fs::read_to_string(temp_home.join("tilde.txt")).unwrap();
+    assert_eq!(content, "TESTING_TILDE");
+
+    // 7. Clean up env var explicitly
+    if let Some(home) = original_home {
+        unsafe { env::set_var("HOME", home) };
+    } else {
+        unsafe { env::remove_var("HOME") };
+    }
+}
+
+#[test]
+fn test_mcp_syntax_guard_multi_language() {
+    let mut server = StdioTestServer::new();
+    server.initialize();
+
+    // 1. Test Valid Rust File (Supported)
+    let _write_rs = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "write_file",
+            "arguments": {
+                "path": "valid.rs",
+                "content": "fn main() { println!(\"Hello World\"); }"
+            }
+        }
+    });
+    server.send(write_req_helper(1, "valid.rs", "fn main() { println!(\"Hello World\"); }"));
+    let resp = server.recv();
+    assert!(resp.get("error").is_none());
+    
+    let content_items = resp["result"]["content"].as_array().expect("Should have content array");
+    let rust_advisory = content_items.iter().find(|i| i["text"].as_str().unwrap_or("").contains("AST structural validation passed successfully"));
+    assert!(rust_advisory.is_some(), "Expected valid syntax advisory for Rust file in content array");
+
+    // 2. Test Invalid Python File (Supported)
+    server.send(write_req_helper(2, "invalid.py", "def my_func(:\n  print(\"Broken\")"));
+    let resp = server.recv();
+    assert!(resp.get("error").is_none()); // The write succeeds, but the heuristic flags it
+    
+    let content_items = resp["result"]["content"].as_array().expect("Should have content array");
+    let py_advisory = content_items.iter().find(|i| i["text"].as_str().unwrap_or("").contains("AST validation failed"));
+    assert!(py_advisory.is_some(), "Expected invalid syntax advisory for Python file in content array");
+
+    // 3. Test Unsupported File (Should be silent)
+    server.send(write_req_helper(3, "random.txt", "Just some text"));
+    let resp = server.recv();
+    assert!(resp.get("error").is_none());
+    
+    // Check that there is NO syntax advisory
+    let content_items = resp["result"]["content"].as_array().expect("Should have content array");
+    let has_syntax_guard = content_items.iter().any(|i| i["text"].as_str().unwrap_or("").contains("AST structural validation") || i["text"].as_str().unwrap_or("").contains("AST validation failed"));
+    assert!(!has_syntax_guard, "Expected NO syntax advisory for unsupported .txt file");
+}
+
+fn write_req_helper(id: u64, path: &str, content: &str) -> serde_json::Value {
+    json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "tools/call",
+        "params": {
+            "name": "write_file",
+            "arguments": {
+                "path": path,
+                "content": content
+            }
+        }
+    })
+}
+

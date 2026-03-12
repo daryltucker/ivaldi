@@ -132,6 +132,7 @@ pub async fn rename_symbol(
                                         backups_created: 1,
                                     })
                                 },
+                                ui_diffs: Vec::new(),
                                 error: write_resp.error,
                                 advisory: write_resp.advisory,
                             };
@@ -180,6 +181,7 @@ pub async fn rename_symbol(
                 backups_created: 1,
             })
         },
+        ui_diffs: Vec::new(),
         error: write_resp.error,
         advisory: write_resp.advisory,
     };

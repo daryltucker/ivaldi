@@ -51,6 +51,7 @@ pub fn handle_initialize(
             ivaldi_core::IvaldiResponse {
                 content: Some(init_data),
                 is_error: false,
+                ui_diffs: vec![],
                 error: None,
                 advisory: vec![],
             }
@@ -87,6 +88,7 @@ pub fn handle_tools_list(state: &ServerState) -> Result<ivaldi_core::IvaldiRespo
     Ok(ivaldi_core::IvaldiResponse {
         content: Some(tools_list),
         is_error: false,
+        ui_diffs: vec![],
         error: None,
         advisory: vec![],
     })
@@ -140,12 +142,15 @@ pub async fn handle_tools_call(
     // Resolve path relative to Session
     let path_str = args.get("path").and_then(|v| v.as_str());
     let path_buf = if let Some(p) = path_str {
-       if let Some(session) = state.get_session() {
-            let manager = state.session_manager().lock().unwrap();
-            manager.resolve_path(&session, std::path::Path::new(p))
-       } else {
-            std::path::PathBuf::from(p)
-       }
+        // Expand tilde before determining if it's absolute/relative to the session root!
+        let expanded = ivaldi_core::util::path::expand_tilde(std::path::PathBuf::from(p));
+        
+        if let Some(session) = state.get_session() {
+             let manager = state.session_manager().lock().unwrap();
+             manager.resolve_path(&session, &expanded)
+        } else {
+             expanded
+        }
     } else {
        state.get_session().map(|s| s.root).unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
     };
