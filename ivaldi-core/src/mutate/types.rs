@@ -38,6 +38,8 @@ pub struct WriteFileArgs {
 /// - **AST-First**: Nodes are more stable than lines for source code.
 /// - **Pre-flight Logic**: Heuristics check for git-ignore and syntax errors.
 ///
+/// **Preview Mode**: Set `preview: true` to see the diff without applying changes.
+///
 /// **Usage**: Use to modify specific parts of a file without rewriting the whole content.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct EditFileArgs {
@@ -58,6 +60,10 @@ pub struct EditFileArgs {
 
     /// End line (1-indexed)
     pub to_line: Option<usize>,
+
+    /// Preview mode: if true, returns diff without applying changes
+    #[serde(default)]
+    pub preview: bool,
 }
 
 /// Arguments for the edit_files tool
@@ -99,3 +105,19 @@ fn default_false() -> bool {
     false
 }
 
+/// Result of a preview edit - shows what would change without applying
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct EditPreview {
+    /// Path to the file that would be edited
+    pub path: PathBuf,
+    /// The diff that would be applied
+    pub diff: String,
+    /// Original content preview (first 500 chars)
+    pub original_preview: String,
+    /// New content preview (first 500 chars)
+    pub modified_preview: String,
+    /// Number of lines changed
+    pub lines_changed: usize,
+    /// Heuristics that would be applied
+    pub heuristics_triggered: Vec<String>,
+}

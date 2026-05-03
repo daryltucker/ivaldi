@@ -16,7 +16,7 @@
 //! ├── file_ops.rs   → File operations (find, read, write, edit)
 //! ├── ast_edit.rs   → AST-based editing via vecq (future)
 //! ├── undo.rs       → Operation journal and undo stack
-//! └── aiignore.rs   → .aiignore parsing
+//! └── .agentignore  → noise-filter for agent file-walking
 //! ```
 //!
 //! ## KEY TYPES

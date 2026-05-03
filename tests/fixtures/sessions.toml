@@ -2,7 +2,7 @@
 id = "default"
 root = "/tmp/.tmpZE7NFU"
 created_at = "2026-01-18T20:00:17.086998895Z"
-last_active = "2026-03-12T04:44:07.025293274Z"
+last_active = "2026-05-03T21:54:10.796207253Z"
 
 [sessions.default.conversations]
 
@@ -10,13 +10,13 @@ last_active = "2026-03-12T04:44:07.025293274Z"
 label = ".tmpZE7NFU"
 tags = []
 recent_files = []
-aiignore_patterns = []
+agentignore_patterns = []
 
 [sessions.test-session]
 id = "test-session"
 root = "/tmp/.tmpVOihcZ"
 created_at = "2026-01-18T20:00:58.019339052Z"
-last_active = "2026-03-12T04:44:06.739120861Z"
+last_active = "2026-05-03T21:54:10.710987940Z"
 
 [sessions.test-session.conversations]
 
@@ -27,4 +27,4 @@ tags = [
     "http",
 ]
 recent_files = []
-aiignore_patterns = []
+agentignore_patterns = []

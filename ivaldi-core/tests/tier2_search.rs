@@ -19,6 +19,7 @@ fn world() { println!("world"); }
         language: None,
         depth: 1,
         pattern: None,
+        respect_agentignore: true,
     };
 
     let response = search_code(args).await;
@@ -52,6 +53,7 @@ class Bar:
         language: None,
         depth: 1,
         pattern: None,
+        respect_agentignore: true,
     };
 
     let response = search_code(args).await;
@@ -87,6 +89,7 @@ async fn test_search_code_respects_gitignore() {
         language: None,
         depth: 2,
         pattern: None,
+        respect_agentignore: true,
     };
 
     let response = search_code(args).await;

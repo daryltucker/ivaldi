@@ -3,6 +3,7 @@
 //! ## PURPOSE
 //! Provides surgical file editing by targeting AST nodes rather than line numbers.
 //!
+#![allow(clippy::needless_range_loop)]
 //! ## PHILOSOPHY
 //! - **Stability**: Nodes are more stable than line numbers.
 //! - **Precision**: Target exactly what you mean (e.g., "fn main").
@@ -469,7 +470,7 @@ fn edit_lines(
     let mut heuristics_triggered = Vec::new();
 
     if !target_base_ws.is_empty() && !replacement_lines.is_empty() {
-        // Find indentation of the first line of the replacement block
+        // Find indentation of the first non-empty line of the replacement block
         let replacement_first_ws = replacement_lines.iter()
             .find(|l| !l.trim().is_empty())
             .map(|l| l.chars().take_while(|c| c.is_whitespace()).count())
@@ -477,9 +478,9 @@ fn edit_lines(
 
         let target_ws_count = target_base_ws.chars().count();
         
-        // Heal if the replacement is "naked" (starts at col 0) and target was indented.
+        // CASE A: Replacement is "naked" (starts at col 0) — heal by adding target indentation.
         // We allow up to 100 lines for this surgery to handle typical logic blocks.
-        if (replacement_first_ws == 0 && replacement_lines.len() < 100) && target_ws_count > 0 {
+        if replacement_first_ws == 0 && replacement_lines.len() < 100 && target_ws_count > 0 {
             let shift_by = target_ws_count;
             let extra_ws = if shift_by <= target_ws_count {
                 &target_base_ws[..shift_by]
@@ -493,25 +494,40 @@ fn edit_lines(
                 }
             }
             heuristics_triggered.push("indentation_healing".to_string());
+        
+        // CASE B: Replacement already has indentation that differs from target — note it.
+        } else if replacement_first_ws > 0 && replacement_first_ws != target_ws_count {
+            heuristics_triggered.push(format!(
+                "indentation_mismatch:repl={}:target={}",
+                replacement_first_ws, target_ws_count
+            ));
         }
     }
 
-    // --- HEURISTIC 2: Anchor Overlap Trimming ---
+// --- HEURISTIC 2: Anchor Overlap Trimming ---
     // Prevent duplicated lines if the Agent included surrounding context anchors.
+    // Compare TRIMMED content to handle whitespace differences between
+    // agent replacement and file content.
     
     // Trim leading overlaps (compared to line immediately BEFORE start)
     if start > 1 && !replacement_lines.is_empty() {
         let before_line = lines[start - 2];
-        if replacement_lines[0].trim() == before_line.trim() {
+        let before_trimmed = before_line.trim();
+        
+        // Check: does the FIRST replacement line match (ignoring whitespace)?
+        if replacement_lines[0].trim() == before_trimmed {
             replacement_lines.remove(0);
             heuristics_triggered.push("anchor_trimming_leading".to_string());
         }
     }
-
+    
     // Trim trailing overlaps (compared to line immediately AFTER end)
     if end < lines.len() && !replacement_lines.is_empty() {
         let after_line = lines[end];
-        if replacement_lines.last().unwrap().trim() == after_line.trim() {
+        let after_trimmed = after_line.trim();
+        
+        // Check: does the LAST replacement line match (ignoring whitespace)?
+        if replacement_lines.last().unwrap().trim() == after_trimmed {
             replacement_lines.pop();
             heuristics_triggered.push("anchor_trimming_trailing".to_string());
         }
@@ -618,7 +634,14 @@ fn edit_grep(
     let (line_start, _) = matches[0];
     let line_end = line_start;
 
-    edit_lines(content, line_start, line_end, replacement)
+    let mut outcome = edit_lines(content, line_start, line_end, replacement)?;
+
+    // Heuristic: if grep matched 1 line but replacement is multi-line, note it
+    if replacement.lines().count() > 1 {
+        outcome.heuristics_triggered.push("grep_multi_line_replacement".to_string());
+    }
+
+    Ok(outcome)
 }
 
 /// Find lines that might be similar to the pattern

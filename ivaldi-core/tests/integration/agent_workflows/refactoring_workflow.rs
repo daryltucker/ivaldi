@@ -48,6 +48,7 @@ async fn test_simulation_refactoring_workflow() {
         query: None,
         grep: Some("pub struct OldName".to_string()),
         from_line: None, to_line: None,
+        preview: false,
     };
     assert!(Mutator::edit_file(root, edit_a, &journal).await.is_success());
     
@@ -61,6 +62,7 @@ async fn test_simulation_refactoring_workflow() {
         query: None, 
         grep: Some("OldName".to_string()), // Matches line 1
         from_line: None, to_line: None,
+        preview: false,
     };
     // Wait, grep only replaces ONE line. file_b has 2 occurrences? 
     // "use ... OldName" and "fn ... OldName".

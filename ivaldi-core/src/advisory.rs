@@ -41,8 +41,8 @@
 //! 3. **Truth of State**: Provide the Agent with the most accurate picture of the final file state so they can make their own informed decisions.
 //! 4. **Neutral Tone**: Use passive, descriptive voice (e.g., "Leading anchor line removed" vs "You should remove anchor lines").
 
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// Source of an advisory message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -90,22 +90,22 @@ pub enum AdvisoryLevel {
 pub struct AdvisoryMessage {
     /// Who generated this message
     pub source: AdvisorySource,
-    
+
     /// How important is this message
     pub level: AdvisoryLevel,
-    
+
     /// The advisory content (structured data)
     pub content: serde_json::Value,
-    
+
     /// Optional suggested action
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
-    
+
     /// Optional embedding from vecdb search
     /// Used for ADT queries on error patterns
     #[serde(skip_serializing_if = "Option::is_none")]
     pub embedding: Option<Vec<f32>>,
-    
+
     /// Optional reference to related documentation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reference: Option<String>,
@@ -115,11 +115,9 @@ pub struct AdvisoryMessage {
 /// - **NEVER** use opinionated coaching (e.g., "You should...")
 /// - **ALWAYS** use factual instrumentation (e.g., "Tool applied X because of Y")
 /// - **PRIORITIZE** describing the resulting state over the process
-
 // ============================================================================
 // BUILDER METHODS
 // ============================================================================
-
 impl AdvisoryMessage {
     /// Create an info-level advisory from the tool
     pub fn tool_info<T: Serialize>(content: T) -> Self {
@@ -132,7 +130,7 @@ impl AdvisoryMessage {
             reference: None,
         }
     }
-    
+
     /// Create a warning from the tool
     pub fn tool_warn<T: Serialize>(content: T) -> Self {
         Self {
@@ -144,7 +142,7 @@ impl AdvisoryMessage {
             reference: None,
         }
     }
-    
+
     /// Create a suggestion from the ADT (collective wisdom)
     pub fn adt_suggest<T: Serialize>(content: T, action: impl Into<String>) -> Self {
         Self {
@@ -156,7 +154,7 @@ impl AdvisoryMessage {
             reference: None,
         }
     }
-    
+
     /// Add a suggested action
     pub fn with_action(mut self, action: impl Into<String>) -> Self {
         self.action = Some(action.into());
@@ -168,7 +166,7 @@ impl AdvisoryMessage {
         self.embedding = Some(embedding);
         self
     }
-    
+
     /// Add a documentation reference
     pub fn with_reference(mut self, reference: impl Into<String>) -> Self {
         self.reference = Some(reference.into());
@@ -179,20 +177,23 @@ impl AdvisoryMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_tool_info() {
         let msg = AdvisoryMessage::tool_info("File has trailing whitespace");
         assert_eq!(msg.source, AdvisorySource::Tool);
         assert_eq!(msg.level, AdvisoryLevel::Info);
-        assert_eq!(msg.content, serde_json::Value::String("File has trailing whitespace".to_string()));
+        assert_eq!(
+            msg.content,
+            serde_json::Value::String("File has trailing whitespace".to_string())
+        );
     }
-    
+
     #[test]
     fn test_adt_suggest_with_action() {
         let msg = AdvisoryMessage::adt_suggest(
             "This pattern failed before",
-            "Consider using Arc<Mutex<T>>"
+            "Consider using Arc<Mutex<T>>",
         );
         assert_eq!(msg.source, AdvisorySource::Adt);
         assert!(msg.action.is_some());

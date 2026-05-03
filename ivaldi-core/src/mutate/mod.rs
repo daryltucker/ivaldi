@@ -18,7 +18,7 @@ pub mod append_section;
 pub mod rename_symbol;
 mod backup;
 
-pub use types::{WriteFileArgs, EditFileArgs, EditFilesArgs, RenameSymbolArgs};
+pub use types::{WriteFileArgs, EditFileArgs, EditFilesArgs, RenameSymbolArgs, EditPreview};
 pub use json::{EditJsonArgs, JsonOperation};
 pub use checkbox::{ToggleCheckboxArgs, CheckboxState, CheckboxResult};
 pub use append_section::{AppendToSectionArgs, InsertPosition, AppendResult};
@@ -36,8 +36,19 @@ impl Mutator {
     }
 
     /// Edit a file surgically (The Scalpel).
-    pub async fn edit_file(root: &Path, args: EditFileArgs, journal: &Journal) -> IvaldiResponse<PathBuf> {
-        edit::edit_file(root, args, journal).await
+    /// Returns PathBuf on success, or EditPreview if preview=true.
+    pub async fn edit_file(root: &Path, args: EditFileArgs, journal: &Journal) -> IvaldiResponse<serde_json::Value> {
+        // Call edit and convert result
+        let result = edit::edit_file(root, args, journal).await;
+        
+        // Map the inner type to serde_json::Value
+        IvaldiResponse {
+            is_error: result.is_error,
+            content: result.content.map(|c| serde_json::to_value(c).unwrap_or(serde_json::Value::Null)),
+            ui_diffs: result.ui_diffs,
+            error: result.error,
+            advisory: result.advisory,
+        }
     }
 
     /// Transactional multi-file edit.

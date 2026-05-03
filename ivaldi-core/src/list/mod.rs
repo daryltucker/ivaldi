@@ -14,7 +14,7 @@
 
 use std::path::PathBuf;
 // use std::fs;
-use crate::{IvaldiResponse, AdvisoryMessage}; 
+use crate::{IvaldiResponse, AdvisoryMessage, util}; 
 use std::time::SystemTime;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -42,17 +42,15 @@ pub struct ListDirArgs {
     #[serde(default = "default_list_hidden")]
     pub show_hidden: bool,
 
-    /// Whether to respect .aiignore (default: true)
+    /// Whether to respect .agentignore (default: true)
+    /// .agentignore is a signal-to-noise filter, not a security boundary.
+    /// Agents can bypass it with `respect_agentignore: false`.
     #[serde(default = "default_true")]
-    pub respect_aiignore: bool,
+    pub respect_agentignore: bool,
 
     /// Whether to evaluate and restrict based on .gitignore (default: false)
     #[serde(default = "default_false")]
     pub enable_gitignore: bool,
-
-    /// Whether to respect .agentignore (default: true)
-    #[serde(default = "default_true")]
-    pub respect_agentignore: bool,
 }
 
 fn default_list_path() -> PathBuf { PathBuf::from(".") }
@@ -89,12 +87,7 @@ impl Lister for FsLister {
             .ignore(args.enable_gitignore)
             .hidden(!args.show_hidden); // if show_hidden is false, we want to hide them
 
-        if args.respect_aiignore {
-            walker.add_custom_ignore_filename(".aiignore");
-        }
-        if args.respect_agentignore {
-            walker.add_custom_ignore_filename(".agentignore");
-        }
+        util::agentignore::apply(&mut walker, args.respect_agentignore);
 
         let mut entries = Vec::new();
         let mut advisory = None;

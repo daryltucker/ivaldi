@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 //! MCP Response Formatting
 //!
 //! This module implements pure MCP JSON-RPC response formatting.
@@ -8,19 +10,20 @@ use serde_json::{json, Value};
 use ivaldi_core::IvaldiResponse;
 
 /// Format a full IvaldiResponse for an MCP tool call
-/// 
+///
 /// Preserves advisories by adding them as additional content items.
 pub fn format_tool_response(response: IvaldiResponse<Value>) -> Value {
     // 0. Fast-path for protocol responses (initialize, tools/list)
     if let Some(content) = &response.content {
-        if content.get("protocolVersion").is_some() || 
-           (content.get("tools").is_some() && content.get("tools").unwrap().is_array()) {
+        if content.get("protocolVersion").is_some()
+            || (content.get("tools").is_some() && content.get("tools").unwrap().is_array())
+        {
             return content.clone();
         }
     }
 
     let mut content_items = Vec::new();
-    
+
     // 1. Add Primary Content
     if let Some(content) = response.content {
         // Smart Content Extraction
@@ -35,7 +38,7 @@ pub fn format_tool_response(response: IvaldiResponse<Value>) -> Value {
         } else {
             content.to_string()
         };
-        
+
         content_items.push(json!({
             "type": "text",
             "text": content_str,
@@ -55,7 +58,7 @@ pub fn format_tool_response(response: IvaldiResponse<Value>) -> Value {
             }));
         }
     }
-    
+
     // 1.5 Add Visual UI Diffs (For humans only)
     for diff in response.ui_diffs {
         content_items.push(json!({
@@ -66,7 +69,7 @@ pub fn format_tool_response(response: IvaldiResponse<Value>) -> Value {
             }
         }));
     }
-    
+
     // 2. Add Advisories
     for adv in response.advisory {
         let text = if adv.content.is_string() {
@@ -74,14 +77,14 @@ pub fn format_tool_response(response: IvaldiResponse<Value>) -> Value {
         } else {
             serde_json::to_string_pretty(&adv.content).unwrap_or_else(|_| adv.content.to_string())
         };
-        
+
         use ivaldi_core::advisory::AdvisoryLevel;
         let level_prefix = match adv.level {
             AdvisoryLevel::Warn => "⚠️ ADVISORY (Warning): ",
             AdvisoryLevel::Info => "ℹ️ ADVISORY (Info): ",
             AdvisoryLevel::Suggest => "💡 ADVISORY (Suggestion): ",
         };
-        
+
         content_items.push(json!({
             "type": "text",
             "text": format!("{}{}", level_prefix, text)
@@ -92,7 +95,7 @@ pub fn format_tool_response(response: IvaldiResponse<Value>) -> Value {
         "isError": response.is_error,
         "content": content_items
     });
-    
+
     // Add structured error for machine-reading if present
     if let Some(err) = response.error {
         result["error"] = json!({
@@ -100,7 +103,7 @@ pub fn format_tool_response(response: IvaldiResponse<Value>) -> Value {
             "message": err.message
         });
     }
-    
+
     result
 }
 

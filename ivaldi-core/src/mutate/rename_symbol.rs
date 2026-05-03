@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use super::types::{RenameSymbolArgs, WriteFileArgs};
 use super::write::write_file;
 use crate::response::IvaldiResponse;

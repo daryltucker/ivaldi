@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use serde::{Deserialize, Serialize};
 use crate::IvaldiResponse;
 use schemars::JsonSchema;

@@ -7,7 +7,7 @@ use vecq::{parse_file, convert_to_json, query_json, FileType}; // Added vecq imp
 use ivaldi_core::navigate::FindFilesArgs;
 use ivaldi_core::observe::{ReadFileArgs, ReadFilesArgs, AnalyzeDirArgs, AnalyzeFileArgs, SearchCodeArgs, GitReadArgs, ReadSyslogsArgs};
 use ivaldi_core::list::ListDirArgs;
-use ivaldi_core::mutate::{WriteFileArgs, EditFileArgs, EditFilesArgs};
+use ivaldi_core::mutate::{WriteFileArgs, EditFileArgs, EditFilesArgs, RenameSymbolArgs};
 use ivaldi_core::undo::UndoArgs;
 use ivaldi_core::session::types::{SessionInitArgs, SessionListArgs, SessionGetArgs, SessionUpdateArgs};
 
@@ -45,8 +45,7 @@ fn main() -> anyhow::Result<()> {
         ("write_file", schema_for!(WriteFileArgs)),
         ("edit_file", schema_for!(EditFileArgs)),
         ("edit_files", schema_for!(EditFilesArgs)),
-        ("undo", schema_for!(UndoArgs)),
-        ("edit_file", schema_for!(EditFileArgs)),
+        ("rename_symbol", schema_for!(RenameSymbolArgs)),
         ("undo", schema_for!(UndoArgs)),
         ("analyze_dir", schema_for!(AnalyzeDirArgs)),
         ("analyze_file", schema_for!(AnalyzeFileArgs)),

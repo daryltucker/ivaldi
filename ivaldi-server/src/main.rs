@@ -10,7 +10,7 @@
 //! ## MCP TOOLS (Planned)
 //!
 //! ### File Operations
-//! - `find_files` - Find files matching pattern (.aiignore aware)
+//! - `find_files` - Find files matching pattern (.agentignore aware)
 //! - `list_dir` - List directory with metadata
 //! - `read_file` - Read file with optional line range
 //! - `create_file` - Create new file (with pre-flight)

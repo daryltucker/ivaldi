@@ -1,10 +1,12 @@
 use std::path::{Path, PathBuf};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{BufReader, BufRead};
+use std::cmp::Ordering;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::IvaldiResponse;
+use crate::{IvaldiResponse, util};
+use ignore::WalkBuilder;
 
 /// Arguments for the analyze_dir tool
 /// 
@@ -20,13 +22,16 @@ pub struct AnalyzeDirArgs {
     #[serde(default = "default_max_depth")]
     pub max_depth: usize,
     
-    /// Optional patterns to ignore (in addition to gitignore)
-    #[serde(default)]
-    pub ignore_patterns: Vec<String>,
+    /// Whether to respect .agentignore (default: true)
+    /// .agentignore is a signal-to-noise filter, not a security boundary.
+    /// Agents can bypass it with `respect_agentignore: false`.
+    #[serde(default = "default_true")]
+    pub respect_agentignore: bool,
 }
 
 fn default_root() -> PathBuf { PathBuf::from(".") }
 fn default_max_depth() -> usize { 5 }
+fn default_true() -> bool { true }
 
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct DirAnalysis {
@@ -70,23 +75,128 @@ pub struct Analyzer;
 
 impl Analyzer {
     pub fn analyze_dir(args: AnalyzeDirArgs) -> IvaldiResponse<DirAnalysis> {
-        let root = args.path.clone();
+        let root = args.path;
         
-        // Build walker (used for ignore logic only if we were doing flat walk, 
-        // but for structure we use manual recursion. 
-        // We do use WalkBuilder just to get the `ignore` functionality IF we wanted broad stats?
-        // But the current recursion does it all.
-        // Let's actually remove the WalkBuilder part since it wasn't being used effectively.
+        // Phase 1: Walk the directory tree using ignore::WalkBuilder.
+        // This respects .agentignore (by default) and enforces depth limits.
+        let mut walker = WalkBuilder::new(&root);
+        walker
+            .max_depth(Some(args.max_depth))
+            .git_ignore(false)   // .gitignore is opt-in; matches Ivaldi philosophy
+            .ignore(false)       // .ignore is opt-in
+            .hidden(true);       // skip dotfiles by default
+        util::agentignore::apply(&mut walker, args.respect_agentignore);
         
-        let (node, f_count, d_count, t_size, exts) = analyze_recursive(&root, 0, args.max_depth, &args.ignore_patterns);
+        // Phase 2: Collect all entries into a path → metadata map.
+        // Track which paths are directories vs files, and their sizes.
+        // Key is the canonical relative path from root.
+        #[derive(Default)]
+        struct EntryMeta {
+            is_dir: bool,
+            size: u64,
+        }
+        
+        let mut entries: HashMap<PathBuf, EntryMeta> = HashMap::new();
+        let mut file_count: usize = 0;
+        let mut dir_count: usize = 0;
+        let mut total_size: u64 = 0;
+        let mut extensions: BTreeMap<String, usize> = BTreeMap::new();
+        
+        for result in walker.build() {
+            let Ok(entry) = result else { continue };
+            if entry.depth() == 0 {
+                // Root entry — we already know this exists
+                continue;
+            }
+            
+            let path = entry.path().to_path_buf();
+            let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
+            let size = entry.metadata().ok().map(|m| m.len()).unwrap_or(0);
+            
+            entries.insert(path.clone(), EntryMeta { is_dir, size });
+            
+            if is_dir {
+                dir_count += 1;
+            } else {
+                file_count += 1;
+                total_size += size;
+                
+                // Track file extension
+                let ext = entry.path().extension()
+                    .map(|e| e.to_string_lossy().to_lowercase())
+                    .unwrap_or_else(|| "no_ext".to_string());
+                *extensions.entry(ext).or_default() += 1;
+            }
+        }
+        
+        // Phase 3: Build parent → children mapping for tree reconstruction.
+        let mut children_by_parent: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
+        for path in entries.keys() {
+            if let Some(parent) = path.parent() {
+                children_by_parent.entry(parent.to_path_buf())
+                    .or_default()
+                    .push(path.clone());
+            }
+        }
+        
+        // Sort each parent's children: directories first, then by name.
+        for children in children_by_parent.values_mut() {
+            children.sort_by(|a, b| {
+                let a_is_dir = entries.get(a).map(|e| e.is_dir).unwrap_or(false);
+                let b_is_dir = entries.get(b).map(|e| e.is_dir).unwrap_or(false);
+                match (a_is_dir, b_is_dir) {
+                    (true, false) => Ordering::Less,
+                    (false, true) => Ordering::Greater,
+                    _ => a.file_name().cmp(&b.file_name()),
+                }
+            });
+        }
+        
+        // Phase 4: Recursively build the tree from the root.
+        fn build_tree(
+            path: &Path,
+            entries: &HashMap<PathBuf, EntryMeta>,
+            children_by_parent: &HashMap<PathBuf, Vec<PathBuf>>,
+        ) -> FileNode {
+            let name = path.file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let meta = entries.get(path);
+            
+            let is_dir = meta.map(|m| m.is_dir).unwrap_or_else(|| path.is_dir());
+            let size = meta.map(|m| m.size);
+            
+            let children = if is_dir {
+                let kids = children_by_parent.get(path)
+                    .map(|child_paths| {
+                        child_paths.iter()
+                            .map(|cp| build_tree(cp, entries, children_by_parent))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                Some(kids)
+            } else {
+                None
+            };
+            
+            FileNode { name, is_dir, children, size }
+        }
+        
+        // The root is depth 0 — it won't be in `entries` (we skip depth==0 above).
+        // But it might not be in the walker results at all if WalkBuilder doesn't yield it.
+        // Build the root node manually.
+        let root_meta = EntryMeta { is_dir: true, size: 0 };
+        entries.insert(root.clone(), root_meta);
+        dir_count += 1; // count root
+        let root_node = build_tree(&root, &entries, &children_by_parent);
         
         IvaldiResponse::success(DirAnalysis {
             path: root,
-            file_count: f_count,
-            dir_count: d_count,
-            total_size_bytes: t_size,
-            extensions: exts,
-            structure: node,
+            file_count,
+            dir_count,
+            total_size_bytes: total_size,
+            extensions,
+            structure: root_node,
         })
     }
     
@@ -168,93 +278,4 @@ impl Analyzer {
     }
 }
 
-fn analyze_recursive(path: &Path, depth: usize, max_depth: usize, ignore_patterns: &[String]) -> (FileNode, usize, usize, u64, BTreeMap<String, usize>) {
-    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-    
-    // Check custom ignore patterns
-    for pat in ignore_patterns {
-        if name.contains(pat) { // Very simple contains check for now
-             return (FileNode { name, is_dir: path.is_dir(), children: None, size: None }, 0, 0, 0, BTreeMap::new());
-        }
-    }
-    
-    if depth > max_depth {
-         return (FileNode { 
-             name, 
-             is_dir: path.is_dir(), 
-             children: None, 
-             size: None 
-         }, 0, 0, 0, BTreeMap::new());
-    }
 
-    if path.is_file() {
-         let size = path.metadata().map(|m| m.len()).unwrap_or(0);
-         let ext = path.extension()
-            .map(|e| e.to_string_lossy().to_lowercase())
-            .unwrap_or_else(|| "no_ext".to_string());
-         
-         let mut exts = BTreeMap::new();
-         exts.insert(ext, 1);
-         
-         return (FileNode {
-             name,
-             is_dir: false,
-             children: None,
-             size: Some(size)
-         }, 1, 0, size, exts);
-    }
-    
-    // Directory
-    let mut children = Vec::new();
-    let mut f_count = 0;
-    let mut d_count = 1; // Count self
-    let mut t_size = 0;
-    let mut combined_exts = BTreeMap::new();
-    
-    if let Ok(entries) = std::fs::read_dir(path) {
-        for entry in entries.flatten() {
-            let child_path = entry.path();
-            
-            // Basic filtering (dotfiles skipped if not strictly requested? 
-            // The prompt says "respect gitignore". This recursive impl doesn't inherently respect gitignore 
-            // without using the ignore crate's abstraction.
-            // Using `WalkBuilder` is far better for ignore compliance.
-            // But reconstructing the tree from a flat iterator is annoying.
-            // Let's stick to this naive implementation for the "structure" but
-            // understand it might list gitignored files if we don't filter.
-            //
-            // FIX: Check if we can use ignore::WalkBuilder to list immediate children?
-            // Actually, for a robust `analyze_dir`, the `ignore` crate is best.
-            // But for simplicity in this sprint, let's use `read_dir` and exclude `.git`.
-            if child_path.file_name().map(|n| n == ".git").unwrap_or(false) {
-                continue;
-            }
-            
-            let (child_node, fc, dc, ts, exts) = analyze_recursive(&child_path, depth + 1, max_depth, ignore_patterns);
-            children.push(child_node);
-            f_count += fc;
-            d_count += dc;
-            t_size += ts;
-            
-            for (k, v) in exts {
-                *combined_exts.entry(k).or_default() += v;
-            }
-        }
-    }
-    
-    // Sort children: dirs first, then files
-    children.sort_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.cmp(&b.name),
-        }
-    });
-
-    (FileNode {
-        name,
-        is_dir: true,
-        children: Some(children),
-        size: None
-    }, f_count, d_count, t_size, combined_exts)
-}

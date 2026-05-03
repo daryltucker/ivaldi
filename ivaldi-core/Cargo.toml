@@ -9,7 +9,7 @@
 #   file_ops.rs  → Find, list, read, create, write, edit, delete
 #   ast_edit.rs  → AST-based editing via vecq integration
 #   undo.rs      → Operation journal and undo stack
-#   aiignore.rs  → .aiignore parsing and matching
+#   .agentignore → noise-filter for agent file-walking
 #
 # PHILOSOPHY:
 #   - All operations return IvaldiResponse (never raw data)

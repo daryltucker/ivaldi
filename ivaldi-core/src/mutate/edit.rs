@@ -4,15 +4,17 @@ use vecdb_common::FileType;
 use crate::IvaldiResponse;
 use crate::error::IvaldiError;
 use crate::undo::Journal;
-use super::types::{EditFileArgs, EditFilesArgs, WriteFileArgs};
+use super::types::{EditFileArgs, EditFilesArgs, WriteFileArgs, EditPreview};
 use super::write::write_file;
 
 /// Edit a file surgically (The Scalpel).
+/// 
+/// If `preview: true` is set in args, returns EditPreview with diff without applying changes.
 pub async fn edit_file(
     root: &Path,
     args: EditFileArgs,
     journal: &Journal,
-) -> IvaldiResponse<PathBuf> {
+) -> IvaldiResponse<serde_json::Value> {
 
     // 1. Read current content
     let content = match fs::read_to_string(&args.path) {
@@ -86,21 +88,74 @@ pub async fn edit_file(
     };
 
     let mut advisories = Vec::new();
-    for h in outcome.heuristics_triggered {
-        let msg = match h.as_str() {
-            "indentation_healing" => "Surgical content was indented to match the target site's structural depth.",
-            "anchor_trimming_leading" => "Leading anchor line detected and removed from replacement string.",
-            "anchor_trimming_trailing" => "Trailing anchor line detected and removed from replacement string.",
-            _ => "Surgery heuristic applied during edit.",
+    for h in &outcome.heuristics_triggered {
+        let msg: String = match h.as_str() {
+            "indentation_healing" => "Surgical content was indented to match the target site's structural depth.".into(),
+            "anchor_trimming_leading" => "Leading anchor line detected and removed from replacement string.".into(),
+            "anchor_trimming_trailing" => "Trailing anchor line detected and removed from replacement string.".into(),
+            "grep_multi_line_replacement" => "NOTE: Grep matched 1 line but replacement has multiple lines. Only the matched line was replaced. Use 'from_line'/'to_line' or an AST query to replace multi-line blocks.".into(),
+            _ if h.starts_with("indentation_mismatch:") => {
+                // Parse: "indentation_mismatch:repl=N:target=M"
+                let details: String = h.chars().skip("indentation_mismatch:".len()).collect();
+                format!("Replacement indentation ({} spaces) differs from target site ({} spaces). Replacement was NOT re-indented.", 
+                    details.split(':').find_map(|p| p.strip_prefix("repl=")).unwrap_or("?"),
+                    details.split(':').find_map(|p| p.strip_prefix("target=")).unwrap_or("?"))
+            },
+            _ => "Surgery heuristic applied during edit.".into(),
         };
         advisories.push(crate::AdvisoryMessage::tool_info(msg));
     }
 
-    // 3. Write via write_file
-    // Construct WriteFileArgs
     let path_display = args.path.display().to_string();
     let final_content = outcome.content.clone();
     
+    // === PREVIEW MODE ===
+    if args.preview {
+        let diff = similar::TextDiff::from_lines(&content, &final_content);
+        let unified_diff = diff.unified_diff()
+            .context_radius(3)
+            .header(&path_display, &path_display)
+            .to_string();
+        
+        // Count lines changed (simplified - count diff lines that are adds/removes)
+        let lines_changed = unified_diff.lines()
+            .filter(|l| l.starts_with('+') || l.starts_with('-'))
+            .count();
+        
+        let preview = EditPreview {
+            path: args.path.clone(),
+            diff: unified_diff.clone(),
+            original_preview: content.chars().take(500).collect(),
+            modified_preview: final_content.chars().take(500).collect(),
+            lines_changed,
+            heuristics_triggered: outcome.heuristics_triggered.clone(),
+        };
+        
+        let mut response: IvaldiResponse<EditPreview> = IvaldiResponse::success(preview);
+        response.advisory.push(crate::AdvisoryMessage::tool_info(
+            "PREVIEW MODE: No changes written. Set preview:false to apply."
+        ));
+        response.advisory.extend(advisories);
+        
+        if !unified_diff.is_empty() {
+            response.ui_diffs.push(format!("```diff\n{}\n```", unified_diff));
+        }
+        
+        // Convert to generic Response for return
+        let generic_response = IvaldiResponse {
+            is_error: response.is_error,
+            content: response.content.map(|c| serde_json::to_value(c).unwrap_or(serde_json::Value::Null)),
+            ui_diffs: response.ui_diffs,
+            error: response.error,
+            advisory: response.advisory,
+        };
+        
+        return generic_response;
+    }
+
+    // === ACTUAL EDIT MODE ===
+    
+    // Construct WriteFileArgs
     let write_args = WriteFileArgs {
         path: args.path,
         content: outcome.content,
@@ -111,14 +166,24 @@ pub async fn edit_file(
     let mut response = write_file(root, write_args, journal);
     response.advisory.extend(advisories);
     
-    // 4. Generate Visual UI Diff
-    let diff = similar::TextDiff::from_lines(&content, &final_content);
-    let unified_diff = diff.unified_diff().context_radius(3).header(&path_display, &path_display).to_string();
-    if !unified_diff.is_empty() {
-        response.ui_diffs.push(format!("```diff\n{}\n```", unified_diff));
+    // Generate Visual UI Diff (only if write_file didn't already produce one)
+    // write_file generates its own diff; we add one only if write_file's path didn't produce a diff
+    if response.ui_diffs.is_empty() {
+        let diff = similar::TextDiff::from_lines(&content, &final_content);
+        let unified_diff = diff.unified_diff().context_radius(3).header(&path_display, &path_display).to_string();
+        if !unified_diff.is_empty() {
+            response.ui_diffs.push(format!("```diff\n{}\n```", unified_diff));
+        }
     }
     
-    response
+    // Convert to generic Response for return
+    IvaldiResponse {
+        is_error: response.is_error,
+        content: response.content.map(|c| serde_json::to_value(c).unwrap_or(serde_json::Value::Null)),
+        ui_diffs: response.ui_diffs,
+        error: response.error,
+        advisory: response.advisory,
+    }
 }
 
 /// Transactional multi-file edit.

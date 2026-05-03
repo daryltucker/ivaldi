@@ -21,14 +21,24 @@ When a replacement string is provided, Ivaldi automatically checks the first and
 When editing indented files (YAML, Python, Nested JSON), Agents often provide "naked" snippets (starting at Column 0). Writing these literally breaks the file's structural integrity.
 
 ### The Solution (The Bandage)
-Ivaldi detects the "Base Whitespace" of the target site. If a replacement is small (**< 10 lines**) and "naked" (all lines start at column 0), Ivaldi prepends the inherited whitespace to every line in the replacement.
+Ivaldi detects the "Base Whitespace" of the target site. If a replacement is small (**< 100 lines**) and "naked" (all lines start at column 0), Ivaldi prepends the inherited whitespace to every line in the replacement.
 
-#### Rationale for the 10-Line Limit
-- **Safety Window**: 10 lines represents a typical "Surgical" snippet. Auto-indenting a 1,000-line function carry high risk if the Agent's original intent was structural.
+#### Rationale for the 100-Line Limit
+- **Safety Window**: 100 lines represents a typical "Surgical" block. Auto-indenting a 1,000-line function carry high risk if the Agent's original intent was structural.
 - **Agent Responsibility**: Large-scale refactors are "Architectural" work. We assume the Agent is providing a structured payload and we preserve their intended layout literally.
-- **Fail-Safe**: If an Agent makes a mistake at 10 lines, it is trivial to fix. At 10,000 lines, auto-correcting could obfuscate the root cause of a structural mismatch.
+- **Fail-Safe**: If an Agent makes a mistake at 100 lines, it is trivial to fix. At 10,000 lines, auto-correcting could obfuscate the root cause of a structural mismatch.
 
 **Advisory**: Logged as `indentation_healing` at **Info** level.
+
+## 2.1 Indentation Mismatch Detection (Added 2026-04-30)
+
+### The Problem
+Agents sometimes provide replacements that are already indented to a different depth than the target site. Previously, if the replacement already had whitespace, the heuristic skipped silently — the agent got no feedback that their indentation didn't match.
+
+### The Solution
+When a replacement starts with whitespace but it differs from the target site's indentation, Ivaldi leaves the replacement verbatim (does not re-indent) but triggers an `indentation_mismatch` heuristic. The advisory reports both the replacement's whitespace count and the target's whitespace count.
+
+**Advisory**: Logged as `indentation_mismatch` at **Info** level with repl/target whitespace counts.
 
 ## 3. Advisory Philosophy: Transparent Instrumentation
 Ivaldi's advisories are not intended as "opinions" or "coaching" from the tool to the Agent. Instead, they serve as **Transparent Instrumentation**.

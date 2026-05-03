@@ -150,6 +150,7 @@ async fn append_to_markdown_section(
         replacement: format!("\n{}", indented_content),
         from_line: Some(insert_line),
         to_line: Some(insert_line),
+        preview: false,
     };
 
     let edit_result = edit_file(root, edit_args, journal).await;
@@ -278,6 +279,7 @@ async fn append_to_code_section(
         replacement: format!("\n{}", indented_content),
         from_line: Some(insert_line),
         to_line: Some(insert_line),
+        preview: false,
     };
 
     let edit_result = edit_file(root, edit_args, journal).await;

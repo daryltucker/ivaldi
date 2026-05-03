@@ -37,6 +37,7 @@ async fn test_ast_selector_replaces_rust_function() {
         grep: None,
         from_line: None,
         to_line: None,
+        preview: false,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -71,6 +72,7 @@ async fn test_grep_selector_replaces_exact_line() {
         grep: Some("target line".to_string()),
         from_line: None,
         to_line: None,
+        preview: false,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -103,6 +105,7 @@ async fn test_line_range_selector_replaces_range() {
         grep: None,
         from_line: Some(2),
         to_line: Some(3),
+        preview: false,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -134,6 +137,7 @@ async fn test_ast_selector_not_found_returns_error() {
         grep: None,
         from_line: None,
         to_line: None,
+        preview: false,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -169,6 +173,7 @@ async fn test_grep_multiple_matches_returns_error() {
         grep: Some("match".to_string()),
         from_line: None,
         to_line: None,
+        preview: false,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 
@@ -203,6 +208,7 @@ async fn test_line_range_invalid_returns_error() {
         grep: None,
         from_line: Some(2),
         to_line: Some(5),
+        preview: false,
     };
     let result = Mutator::edit_file(dir.path(), edit_args, &journal).await;
 

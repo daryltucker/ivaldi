@@ -14,7 +14,7 @@ pub struct RunCommandArgs {
     pub args: Vec<String>,
     /// Working directory (optional, defaults to project root)
     pub cwd: Option<String>,
-    /// Timeout in milliseconds (default 5000)
+    /// Timeout in milliseconds (default 30000)
     pub timeout_ms: Option<u64>,
 }
 
@@ -54,7 +54,7 @@ pub async fn run_command(args: RunCommandArgs, state: &ServerState) -> anyhow::R
     // 3. Execution
     let config = state.config().safety.clone();
     let runner = CommandRunner::new(config);
-    let timeout = args.timeout_ms.unwrap_or(5000);
+    let timeout = args.timeout_ms.unwrap_or(30000);
 
     // Run with timeout protection via CommandRunner which uses tokio::timeout
     match runner.run_capture(&args.command, &args.args, &cwd, timeout).await {
@@ -66,14 +66,24 @@ pub async fn run_command(args: RunCommandArgs, state: &ServerState) -> anyhow::R
             };
             
             // Generate advisory if stderr has content
+            // Downgrade to Info when exit_code == 0 (benign stderr like `time` output)
             let mut advisories = Vec::new();
             if !result.stderr.is_empty() {
-                advisories.push(AdvisoryMessage::tool_warn(
-                    serde_json::json!({
-                        "stderr": result.stderr, 
-                        "message": "Command wrote to stderr" 
-                    })
-                ));
+                if result.exit_code == 0 {
+                    advisories.push(AdvisoryMessage::tool_info(
+                        serde_json::json!({
+                            "stderr": result.stderr, 
+                            "message": "Command wrote to stderr (exit 0 - informational)" 
+                        })
+                    ));
+                } else {
+                    advisories.push(AdvisoryMessage::tool_warn(
+                        serde_json::json!({
+                            "stderr": result.stderr, 
+                            "message": "Command wrote to stderr" 
+                        })
+                    ));
+                }
             }
 
             // Buffering Heuristic (Advisory channel)

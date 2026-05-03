@@ -143,6 +143,7 @@ pub async fn toggle_checkbox(
         replacement: replacement_line.clone(),
         from_line: None,
         to_line: None,
+        preview: false,
     };
 
     let edit_result = edit_file(root, edit_args, journal).await;

@@ -2,7 +2,28 @@
 
 Welcome to **ivaldi-mcp**. Follow this checklist to operate with precision, safety, and correctly prioritized tooling.
 
-- [ ] **Locate**: Use `find_files(path, pattern)` if the exact path is unknown.
+## 0. MCP Initialization (Session Setup)
+
+When an MCP client connects to Ivaldi, it sends an `initialize` request. This is optional but recommended:
+
+**What it does:**
+- Creates or retrieves a session by ID
+- Discovers project root (walks up from CWD looking for `.git/`, `Cargo.toml`, etc.)
+- Returns session metadata: `id`, `root`, `project_root`, timestamps, `label`
+
+**Why it matters:**
+- Provides context about the project structure
+- Enables session-specific state tracking
+- Sets up the journal for undo operations
+
+**When to call it:**
+- At the start of a new agent session
+- When switching to a different project context
+- Optional but recommended for full functionality
+
+> **Note**: Ivaldi gracefully handles missing initialization - tools work without it using defaults.
+
+## 1. Exploration (The Radar)
 - [ ] **Map**: Use `list_dir(path)` to understand local structure and metadata.
 - [ ] **Ingest**: Use `read_file(path)` to explore content.
     - *Tip*: If >1000 lines, use `from_line`/`to_line` for targeted reading.

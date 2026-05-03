@@ -33,7 +33,6 @@ fn test_find_files_respects_depth_and_pattern() {
         max_entries: 10,
         timeout_ms: 1000,
         enable_gitignore: false,
-        respect_aiignore: false,
         respect_agentignore: false,
     };
     
@@ -48,7 +47,6 @@ fn test_find_files_respects_depth_and_pattern() {
     assert!(!files.iter().any(|f| f.path.ends_with("file2.rs"))); // depth 2
 
     // Test 2: Pattern "*.rs" (recursive)
-    // Test 2: Pattern "*.rs" (recursive)
     let args_glob = FindFilesArgs { 
         path: root.to_path_buf(),
         pattern: "*.rs".to_string(),
@@ -56,7 +54,6 @@ fn test_find_files_respects_depth_and_pattern() {
         max_entries: 100,
         timeout_ms: 2000,
         enable_gitignore: false,
-        respect_aiignore: true,
         respect_agentignore: true,
     };
     let result = FsNavigator::find_files(args_glob);
@@ -124,7 +121,6 @@ fn test_list_dir_metadata() {
         sort: true,
         show_hidden: true,
         enable_gitignore: false,
-        respect_aiignore: true,
         respect_agentignore: true,
     };
     let result = FsLister::list_dir(args);

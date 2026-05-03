@@ -47,8 +47,8 @@ ivaldi read binary.bin      # Error: Binary file detected! (Use --force to overr
 ### Sensors (`list`)
 See what's around you.
 ```bash
-ivaldi list .               # List current directory
-ivaldi list docs -a         # Show hidden files
+ivaldi list .               # List current directory (respects .agentignore)
+ivaldi list docs -a         # Show hidden files and dotfiles
 ```
 
 ### Hammer & Scalpel (`write`/`edit`)

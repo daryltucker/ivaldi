@@ -6,7 +6,7 @@
 //! ## PHILOSOPHY
 //! - **Broad Sweep**: "Find me everything interesting"
 //! - **Safety Limiters**: Depth cap, Entry cap, Timeout
-//! - **Noise Filtering**: Respects .gitignore, .ignore, and .aiignore
+//! - **Noise Filtering**: Respects .agentignore (signal-to-noise filter). .gitignore is opt-in.
 //!
 //! ## KEY TYPES
 //! - `Navigator` trait
@@ -14,7 +14,7 @@
 
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use crate::{IvaldiResponse, AdvisoryMessage}; 
+use crate::{IvaldiResponse, AdvisoryMessage, util}; 
 use ignore::WalkBuilder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 /// **Safety**:
 /// - Max depth: 5 (prevents infinite recursion).
 /// - Max entries: 100 (prevents context flooding).
-/// - Respects `.gitignore` (if enabled) and `.aiignore`.
+/// - Respects `.agentignore` (signal-to-noise filter). `.gitignore` is opt-in.
 ///   **Advisory**: Warns if results are truncated.
 ///   **Usage**:
 ///   Use to locate files when you don't know the exact path.
@@ -54,11 +54,9 @@ pub struct FindFilesArgs {
     #[serde(default = "default_false")]
     pub enable_gitignore: bool,
     
-    /// Whether to respect .aiignore (default: true)
-    #[serde(default = "default_true")]
-    pub respect_aiignore: bool,
-
     /// Whether to respect .agentignore (default: true)
+    /// .agentignore is a signal-to-noise filter, not a security boundary.
+    /// Agents can bypass it with `respect_agentignore: false`.
     #[serde(default = "default_true")]
     pub respect_agentignore: bool,
 }
@@ -99,12 +97,7 @@ impl Navigator for FsNavigator {
             .ignore(args.enable_gitignore) // .ignore files
             .hidden(false); // We usually want hidden files unless specifically ignored
 
-        if args.respect_aiignore {
-             walker.add_custom_ignore_filename(".aiignore");
-        }
-        if args.respect_agentignore {
-             walker.add_custom_ignore_filename(".agentignore");
-        }
+        util::agentignore::apply(&mut walker, args.respect_agentignore);
 
         let mut matches = Vec::new();
         let mut truncated = false;

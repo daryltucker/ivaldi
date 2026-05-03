@@ -34,6 +34,7 @@ async fn test_edit_files_sequential_on_same_path() {
         grep: Some("line 1".to_string()),
         from_line: None,
         to_line: None,
+        preview: false,
     };
     // Edit 2: change line 2
     let edit2 = EditFileArgs {
@@ -43,6 +44,7 @@ async fn test_edit_files_sequential_on_same_path() {
         grep: Some("line 2".to_string()),
         from_line: None,
         to_line: None,
+        preview: false,
     };
 
     let multi_args = EditFilesArgs {
@@ -84,6 +86,7 @@ async fn test_edit_files_rollback_preserves_initial_state() {
         grep: Some("initial".to_string()),
         from_line: None,
         to_line: None,
+        preview: false,
     };
     
     // Edit 2: fails (path doesn't exist)
@@ -94,6 +97,7 @@ async fn test_edit_files_rollback_preserves_initial_state() {
         grep: Some("any".to_string()),
         from_line: None,
         to_line: None,
+        preview: false,
     };
 
     let result = Mutator::edit_files(dir.path(), EditFilesArgs { edits: vec![edit1, edit2] }, &journal).await;

@@ -15,9 +15,12 @@
 
 | Area | Tool | Description |
 | :--- | :--- | :--- |
-| **Radar** | `find_files` | Broad, filtered search (respects .gitignore, .aiignore). |
-| **Telescope** | `read_file` | Deep focus with blast shields (size limits, binary protection). |
-| **Sensors** | `list_dir` | High-fidelity local directory awareness. |
+| **Radar** | `find_files` | Glob pattern search (respects .agentignore; .gitignore opt-in). |
+| **Map** | `list_dir` | High-fidelity local directory awareness. |
+| **Microscope** | `analyze_dir` | Recursive directory structure summary (respects .agentignore). |
+| **X-Ray** | `analyze_file` | Deep single-file analysis: symbols, imports, TODOs. |
+| **X-Ray** | `search_code` | AST-aware structural code search (jq-style queries). |
+| **Telescope** | `read_file` | Focused file reading with blast shields (size limits, binary protection). |
 | **Scalpel** | `edit_file` | AST-aware surgical mutations (Rust, Python, etc.). |
 | **Hammer** | `write_file` | Atomic, collision-safe file creation and updates. |
 | **History** | `git_read` | Read-only access to git history (blame, diff, log). |
@@ -32,18 +35,6 @@
 | **Cargo Binstall** | ⚡ Instant | **YES** | `cargo binstall --git https://github.com/daryltucker/ivaldi-mcp ivaldi-cli ivaldi-server` |
 | **Direct Download**| ⚡ Instant | **YES** | [Download latest release](https://github.com/daryltucker/ivaldi-mcp/releases) |
 | **Cargo Install** | 🐢 Slow | **NO** (Source) | `cargo install --git https://github.com/daryltucker/ivaldi-mcp ivaldi-cli ivaldi-server` |
-
-> [!CAUTION]
-> **Compilation vs. Download**
-> - `cargo install` **ALWAYS** compiles from source on your machine.
-> - `cargo binstall` and **Direct Download** use the pre-compiled binaries produced by GitHub Actions.
-
-
-### 1. Install
-
-```bash
-cargo install --git https://github.com/daryltucker/ivaldi ivaldi-server
-```
 
 ### 2. Configure
 
@@ -66,23 +57,20 @@ Add this to your `claude_config.json`:
       "command": "/usr/local/bin/ivaldi-server",
       "args": [],
       "env": {
-        "IVALDI_ENABLE_GITIGNORE": "true"
+        "IVALDI_ENABLE_GITIGNORE": "false"
       }
     }
   }
 }
 ```
 
-> It is recommended to create `.vectorignore` and leave `IVALDI_ENABLE_GITIGNORE=false`.
+> **Tip**: Create a `.agentignore` file in your project root to filter out noise (build artifacts, lockfiles, vendored code). `.agentignore` works like `.gitignore` but is agent-managed and respected by `find_files`, `analyze_dir`, `list_dir`, and `search_code`. Use `respect_agentignore: false` per tool call to bypass it when needed. `.gitignore` is opt-in via `IVALDI_ENABLE_GITIGNORE=true`.
 
 
 ## 📖 Documentation
 
-- [**Architecture Guide**](docs/ARCHITECTURE.md) - Deep dive into state and safety.
 - [**Agent Manual (Auto-generated)**](docs/MAN_AGENT.json) - Direct schema for agents.
 - [**Configuration Reference**](docs/CONFIGURATION.md) - ENV and CLI flag details.
-- [**Testing Standards**](docs/TESTING_STANDARDS.md) - Coverage and stability protocols.
+- [**Advisory Catalog**](docs/ADVISORIES.md) - All heuristic advisory messages.
+- [**ACL Reference**](docs/ACL.md) - Access control via Cedar policies.
 - [**Troubleshooting Guide**](docs/TROUBLESHOOTING.md) - Common issues and solutions.
-
-## 🤝 Mahal Integration
-This project is optimized for use within the **Mahal** ecosystem. It provides rich metadata headers and structured JSON responses that Mahal's reasoning engine can optimize against.

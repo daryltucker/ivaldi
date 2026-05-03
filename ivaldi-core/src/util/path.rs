@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 /// Expands a leading tilde (`~`) in a path into the user's home directory.
 /// If the path doesn't start with `~` or the home directory cannot be found,
 /// returns the original path.
+#[allow(clippy::collapsible_if)]
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     let path = path.as_ref();
     

@@ -486,7 +486,7 @@ version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -802,7 +802,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -900,7 +900,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1582,7 +1582,7 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "ivaldi-cli"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -1598,7 +1598,7 @@ dependencies = [
 
 [[package]]
 name = "ivaldi-core"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "cedar-policy",
@@ -1629,7 +1629,7 @@ dependencies = [
 
 [[package]]
 name = "ivaldi-server"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "axum",
@@ -1732,7 +1732,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2205,7 +2205,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2795,7 +2795,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3402,7 +3402,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3411,7 +3411,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8c27177b12a6399ffc08b98f76f7c9a1f4fe9fc967c784c5a071fa8d93cf7e1"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4109,8 +4109,8 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vecdb-common"
-version = "1.0.2"
-source = "git+https://github.com/daryltucker/vecdb?tag=v1.0.2#827073236b7be6168d5a0ee60d9210532f018a24"
+version = "1.0.3"
+source = "git+https://github.com/daryltucker/vecdb?tag=v1.0.3#00d0c9563d9a56677421d8a6add7ac95eb9803cd"
 dependencies = [
  "serde",
  "tracing",
@@ -4119,8 +4119,8 @@ dependencies = [
 
 [[package]]
 name = "vecq"
-version = "1.0.2"
-source = "git+https://github.com/daryltucker/vecdb?tag=v1.0.2#827073236b7be6168d5a0ee60d9210532f018a24"
+version = "1.0.3"
+source = "git+https://github.com/daryltucker/vecdb?tag=v1.0.3#00d0c9563d9a56677421d8a6add7ac95eb9803cd"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4130,6 +4130,7 @@ dependencies = [
  "clap_complete",
  "dirs",
  "foldhash 0.1.5",
+ "ignore",
  "indexmap 2.13.0",
  "infer",
  "jaq-core",
@@ -4334,7 +4335,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

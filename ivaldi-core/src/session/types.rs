@@ -44,9 +44,9 @@ pub struct SessionMetadata {
     #[serde(default)]
     pub recent_files: VecDeque<PathBuf>,
     
-    /// Project-specific .aiignore patterns
-    #[serde(default)]
-    pub aiignore_patterns: Vec<String>,
+    /// Paths to the project's .agentignore files
+    #[serde(default, alias = "aiignore_patterns")]
+    pub agentignore_patterns: Vec<String>,
 }
 
 /// Helper struct for serialization to sessions.toml

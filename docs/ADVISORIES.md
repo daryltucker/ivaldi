@@ -8,9 +8,11 @@ Triggered during `edit_file` operations to ensure structural integrity.
 
 | ID | Level | Message | Rationale |
 |----|-------|---------|-----------|
-| `indentation_healing` | Info | "Surgical content was indented to match the target site's structural depth." | Applied to small edits (<10 lines) that are missing base whitespace but intended for an indented site. |
+| `indentation_healing` | Info | "Surgical content was indented to match the target site's structural depth." | Applied to small edits (<100 lines) that are missing base whitespace but intended for an indented site. |
 | `anchor_trimming_leading` | Info | "Leading anchor line detected and removed from replacement string." | Removes a redundant line from the start of the replacement if it matches the line immediately before the edit site. |
 | `anchor_trimming_trailing` | Info | "Trailing anchor line detected and removed from replacement string." | Removes a redundant line from the end of the replacement if it matches the line immediately after the edit site. |
+| `indentation_mismatch` | Info | "Replacement indentation (N spaces) differs from target site (M spaces). Replacement was NOT re-indented." | Triggered when replacement already has whitespace that doesn't match the target site's indentation. Replacement kept verbatim; agent gets explicit feedback. |
+| `grep_multi_line_replacement` | Info | "NOTE: Grep matched 1 line but replacement has multiple lines. Only the matched line was replaced. Use 'from_line'/'to_line' or an AST query to replace multi-line blocks." | Triggered when grep finds exactly 1 match but the replacement spans multiple lines. Guides the agent toward the correct selector. |
 
 ## 2. Investigative Heuristics (Crime Scene)
 

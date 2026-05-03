@@ -40,7 +40,7 @@
 //! All logic lives in ivaldi-core. Never bypass.
 
 mod output;
-use output::{print_find_results, print_read_result, print_list_results, print_write_result}; 
+use output::{print_find_results, print_read_result, print_list_results, print_write_result, print_response}; 
 
 use clap::Parser;
 use ivaldi_core::navigate::{FsNavigator, Navigator, FindFilesArgs};
@@ -72,7 +72,6 @@ fn main() -> anyhow::Result<()> {
                 max_entries: 100,
                 timeout_ms: 5000,
                 enable_gitignore: !no_ignore,
-                respect_aiignore: true,
                 respect_agentignore: true,
             };
             let response = FsNavigator::find_files(args);
@@ -96,9 +95,8 @@ fn main() -> anyhow::Result<()> {
                  path,
                  sort: true,
                  show_hidden: all,
-                 enable_gitignore: false,
-                 respect_aiignore: true,
-                 respect_agentignore: true,
+                enable_gitignore: false,
+                respect_agentignore: true,
              };
              let response = FsLister::list_dir(args);
              print_list_results(&response, cli.json);
@@ -155,6 +153,7 @@ fn main() -> anyhow::Result<()> {
                 grep,
                 from_line: from,
                 to_line: to,
+                preview: false,
             };
             
             // Edit is async
@@ -163,7 +162,8 @@ fn main() -> anyhow::Result<()> {
                 Mutator::edit_file(&root, args, &journal).await
             });
             
-            print_write_result(&response, cli.json); 
+            // Use generic print for the new return type
+            print_response(&response, cli.json); 
         }
         Some(Commands::Undo) => {
              let journal_path = root.join(".ivaldi/journal.jsonl");

@@ -4,6 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::IvaldiResponse;
 use crate::error::IvaldiError;
+use crate::util;
 use vecq::{parse_file, convert_to_json, query_json, FileType};
 use glob;
 
@@ -19,7 +20,7 @@ use glob;
 /// 
 /// **Safety**:
 /// - Max depth: 5 by default.
-/// - Respects `.gitignore`.
+/// - Respects `.agentignore` (signal-to-noise filter). `.gitignore` is opt-in.
 /// 
 /// **Usage**: Use to locate function definitions, class structures, or specific imports across a project without reading every file.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -48,7 +49,15 @@ pub struct SearchCodeArgs {
     
     /// Optional glob pattern to filter files in directory (e.g. "*.rs")
     pub pattern: Option<String>,
+
+    /// Whether to respect .agentignore (default: true)
+    /// .agentignore is a signal-to-noise filter, not a security boundary.
+    /// Agents can bypass it with `respect_agentignore: false`.
+    #[serde(default = "default_true")]
+    pub respect_agentignore: bool,
 }
+
+fn default_true() -> bool { true }
 
 fn default_depth() -> usize { 5 }
 
@@ -64,7 +73,7 @@ pub async fn search_code(args: SearchCodeArgs) -> IvaldiResponse<serde_json::Val
         let mut builder = ignore::WalkBuilder::new(&path);
         builder.max_depth(Some(args.depth));
         builder.git_ignore(true);
-        // Add .aiignore respect if needed via builder.add_custom_ignore_filename(".aiignore");
+        util::agentignore::apply(&mut builder, args.respect_agentignore);
         
         let glob = args.pattern.as_deref().and_then(|p| glob::Pattern::new(p).ok());
         
@@ -188,9 +197,12 @@ pub async fn search_code(args: SearchCodeArgs) -> IvaldiResponse<serde_json::Val
         Err(e) => return IvaldiResponse::error("query_error", e.to_string()),
     };
     
-    // 4. Return
+    // 4. Return with advisory if no results found
+    let mut advisory_msg = format!("Scanned {} files.", processed_count);
+    if results.is_empty() {
+        advisory_msg.push_str(" Query returned 0 matches.");
+    }
+    
     IvaldiResponse::success(serde_json::Value::Array(results))
-        .with_advisory(crate::AdvisoryMessage::tool_info(
-            format!("Scanned {} files.", processed_count)
-        ))
+        .with_advisory(crate::AdvisoryMessage::tool_info(advisory_msg))
 }
