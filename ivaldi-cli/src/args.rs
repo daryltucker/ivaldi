@@ -70,6 +70,10 @@ pub enum Commands {
         /// Context lines for grep (default: 2)
         #[arg(long, short = 'C')]
         context: Option<usize>,
+        
+        /// Maximum content bytes to return
+        #[arg(long, short = 'l')]
+        limit: Option<usize>,
     },
     
     /// List directory contents (Sensors)

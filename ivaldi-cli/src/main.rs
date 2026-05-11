@@ -77,16 +77,17 @@ fn main() -> anyhow::Result<()> {
             let response = FsNavigator::find_files(args);
             print_find_results(&response, cli.json);
         }
-        Some(Commands::Read { path, from, to, force, query, grep, context }) => {
-             let args = ReadFileArgs {
-                 path,
-                 from_line: from,
-                 to_line: to,
-                 force,
-                 query,
-                 grep,
-                 context_lines: context,
-             };
+Some(Commands::Read { path, from, to, force, query, grep, context, limit }) => {
+              let args = ReadFileArgs {
+                  path,
+                  from_line: from,
+                  to_line: to,
+                  force,
+                  query,
+                  grep,
+                  context_lines: context,
+                  limit: limit.unwrap_or(0),
+              };
              let response = FsObserver::read_file(args);
              print_read_result(&response, cli.json);
         }

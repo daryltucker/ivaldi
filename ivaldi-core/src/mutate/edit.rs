@@ -77,6 +77,11 @@ pub async fn edit_file(
                 crate::ast_edit::RichEditError::MissingLineEnd => {
                     IvaldiResponse::from_error(IvaldiError::Internal("AST node missing line_end".into()))
                 },
+                crate::ast_edit::RichEditError::IndentationMismatch(repl, target) => {
+                    IvaldiResponse::from_error(IvaldiError::InvalidArgument(
+                        format!("Indentation mismatch: replacement has {} spaces, target has {} spaces. Write at indent 0 (tool shifts) or at exact target indent ({} spaces).", repl, target, target)
+                    ))
+                },
                 crate::ast_edit::RichEditError::Vecq(e) => {
                     IvaldiResponse::from_error(IvaldiError::Query(format!("Vecq error: {}", e)))
                 },

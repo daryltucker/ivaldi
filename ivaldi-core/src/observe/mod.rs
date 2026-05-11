@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 ///   **Usage**:
 ///   1. Read without args first.
 ///   2. If truncated, use `from_line`/`to_line` to read specific sections.
-///   3. Use `query` for AST-based extraction (e.g., `.functions[]`).
+///   3. Use `query` for AST-based extraction (e.g., ".functions[]").
 ///   4. Use `grep` for regex pattern matching.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct ReadFileArgs {
@@ -55,6 +55,11 @@ pub struct ReadFileArgs {
     /// Number of context lines around grep matches (default: 2)
     #[serde(default = "default_context_lines")]
     pub context_lines: Option<usize>,
+    
+    /// Maximum content bytes to return (default: 0 = no limit)
+    /// Cannot exceed IVALDI_MAX_CONTENT if set.
+    #[serde(default)]
+    pub limit: usize,
 }
 
 fn default_read_force() -> bool { false }
@@ -107,6 +112,7 @@ pub trait Observer {
                 query: None,
                 grep: None,
                 context_lines: None,
+                limit: 0,
             };
             // Self::read_file is static? No, trait method.
             // Wait, read_file is defined as `fn read_file(...)` (static) in the trait?
@@ -253,7 +259,35 @@ impl Observer for FsObserver {
         // Trim last newline if added? No, keep it faithful.
         
         let lines_returned = final_content.lines().count(); // approximate
-
+        
+        // Apply IVALDI_MAX_CONTENT cap to content
+        let final_content_bytes = final_content.len();
+        let effective_limit = if let Some(max_content) = std::env::var("IVALDI_MAX_CONTENT")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok()) 
+        {
+            let agent_limit = if args.limit > 0 { args.limit } else { max_content };
+            std::cmp::min(agent_limit, max_content)
+        } else if args.limit > 0 {
+            args.limit
+        } else {
+            final_content_bytes
+        };
+        
+        if effective_limit > 0 && final_content_bytes > effective_limit {
+            final_content.truncate(effective_limit);
+            truncated = true;
+            if args.limit > 0 && final_content_bytes > args.limit {
+                advisory = Some(AdvisoryMessage::tool_warn(
+                    format!("Content truncated to {} bytes (limit parameter)", effective_limit)
+                ));
+            } else {
+                advisory = Some(AdvisoryMessage::tool_warn(
+                    format!("Content truncated to {} bytes (IVALDI_MAX_CONTENT cap)", effective_limit)
+                ));
+            }
+        }
+        
         let mut response = IvaldiResponse::success(FileContent {
             path: path.to_path_buf(),
             content: final_content,

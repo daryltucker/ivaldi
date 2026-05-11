@@ -6,6 +6,7 @@ use std::cmp::Ordering;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::{IvaldiResponse, util};
+use vecq::{parse_file, convert_to_json, FileType};
 use ignore::WalkBuilder;
 
 /// Arguments for the analyze_dir tool
@@ -55,9 +56,26 @@ pub struct FileNode {
 /// 
 /// **Behavior**: Performs deep analysis of a single file, extracting symbols (functions, classes) and metadata.
 /// **Usage**: Use to search the codebase for specific patterns or symbols. Supports friendly and power modes.
+/// 
+/// **Examples**:
+/// ```json
+/// // Analyze a Rust file
+/// { "path": "src/main.rs" }
+/// 
+/// // Analyze a Markdown file (uses vecq AST parsing)
+/// { "path": "README.md" }
+/// 
+/// // Analyze with content limit
+/// { "path": "src/main.rs", "limit": 5000 }
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AnalyzeFileArgs {
     pub path: PathBuf,
+    
+    /// Maximum content bytes to return (default: 0 = no limit)
+    /// Cannot exceed IVALDI_MAX_CONTENT if set.
+    #[serde(default)]
+    pub limit: usize,
 }
 
 #[derive(Debug, Clone, Serialize, JsonSchema)]
@@ -215,7 +233,18 @@ impl Analyzer {
         if metadata.len() > 10 * 1024 * 1024 { // 10MB limit
              return IvaldiResponse::from_error(IvaldiError::Internal("File > 10MB".into()));
         }
+
+        // Detect file type and use appropriate parser
+        let extension = path.extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
         
+        if extension == "md" || extension == "markdown" {
+            // Use vecq for Markdown files
+            return Self::analyze_file_markdown(&path, args.limit);
+        }
+
+        // Original regex-based parser for code files
         let file = match File::open(&path) {
              Ok(f) => f,
              Err(e) => return IvaldiResponse::from_error(IvaldiError::Io(e)),
@@ -266,15 +295,147 @@ impl Analyzer {
             symbols.push("... (truncated)".to_string());
         }
         
-        IvaldiResponse::success(FileAnalysis {
-            path,
+        // Build the analysis result
+        let analysis = FileAnalysis {
+            path: path.clone(),
             lines: lines_count,
             size_bytes: metadata.len(),
             complexity_score,
             symbols,
             dependencies,
             todos,
-        })
+        };
+        
+        // Apply IVALDI_MAX_CONTENT cap to serialized result
+        let serialized = serde_json::to_string(&analysis).unwrap_or_default();
+        let effective_limit = if let Some(max_content) = std::env::var("IVALDI_MAX_CONTENT")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok()) 
+        {
+            if args.limit > 0 && args.limit < max_content {
+                args.limit
+            } else {
+                max_content
+            }
+        } else if args.limit > 0 {
+            args.limit
+        } else {
+            serialized.len()
+        };
+        
+        if serialized.len() > effective_limit {
+            // Return error - analysis is too large
+            return IvaldiResponse::error("content_too_large", 
+                format!("Analysis size {} exceeds limit {}", serialized.len(), effective_limit));
+        }
+        
+        IvaldiResponse::success(analysis)
+    }
+    
+    /// Analyze a Markdown file using vecq AST parsing
+    fn analyze_file_markdown(path: &Path, limit: usize) -> IvaldiResponse<FileAnalysis> {
+        use crate::error::IvaldiError;
+        
+        let content = match std::fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(e) => return IvaldiResponse::from_error(IvaldiError::Io(e)),
+        };
+        
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let parsed = rt.block_on(async {
+            parse_file(&content, FileType::Markdown).await
+        });
+        
+        let json = match parsed {
+            Ok(p) => match convert_to_json(p) {
+                Ok(j) => j,
+                Err(e) => return IvaldiResponse::error("parse_error", e.to_string()),
+            },
+            Err(e) => return IvaldiResponse::error("parse_error", e.to_string()),
+        };
+        
+        // Extract symbols from Markdown AST
+        let mut headers = Vec::new();
+        let mut list_items = Vec::new();
+        let mut code_blocks = Vec::new();
+        
+        if let Some(arr) = json.get("headers").and_then(|v| v.as_array()) {
+            for h in arr {
+                if let Some(content) = h.get("content").and_then(|v| v.as_str()) {
+                    let level = h.get("level").and_then(|v| v.as_u64()).unwrap_or(1);
+                    headers.push(format!("#{} {}", level, content));
+                }
+            }
+        }
+        
+        if let Some(arr) = json.get("list_items").and_then(|v| v.as_array()) {
+            for item in arr {
+                if let Some(content) = item.get("content").and_then(|v| v.as_str()) {
+                    let checked = item.get("checked").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let status = if checked { "[x]" } else { "[ ]" };
+                    list_items.push(format!("{} {}", status, content));
+                }
+            }
+        }
+        
+        if let Some(arr) = json.get("code_blocks").and_then(|v| v.as_array()) {
+            for cb in arr {
+                if let Some(lang) = cb.get("language").and_then(|v| v.as_str()) {
+                    code_blocks.push(format!("```{}", lang));
+                } else {
+                    code_blocks.push("```".to_string());
+                }
+            }
+        }
+        
+        let lines = content.lines().count();
+        let size_bytes = content.len() as u64;
+        let complexity_score = (lines / 50) as u32; // Rough heuristic
+        
+        // Combine into symbols
+        let mut symbols: Vec<String> = headers;
+        symbols.extend(list_items);
+        symbols.extend(code_blocks);
+        
+        // Limit lists
+        if symbols.len() > 50 {
+            symbols.truncate(50);
+            symbols.push("... (truncated)".to_string());
+        }
+        
+        let analysis = FileAnalysis {
+            path: path.to_path_buf(),
+            lines,
+            size_bytes,
+            complexity_score,
+            symbols,
+            dependencies: Vec::new(), // Markdown has no dependencies
+            todos: Vec::new(),        // Could extract TODOs via regex
+        };
+        
+        // Apply IVALDI_MAX_CONTENT cap
+        let serialized = serde_json::to_string(&analysis).unwrap_or_default();
+        let effective_limit = if let Some(max_content) = std::env::var("IVALDI_MAX_CONTENT")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok()) 
+        {
+            if limit > 0 && limit < max_content {
+                limit
+            } else {
+                max_content
+            }
+        } else if limit > 0 {
+            limit
+        } else {
+            serialized.len()
+        };
+        
+        if serialized.len() > effective_limit {
+            return IvaldiResponse::error("content_too_large", 
+                format!("Analysis size {} exceeds limit {}", serialized.len(), effective_limit));
+        }
+        
+        IvaldiResponse::success(analysis)
     }
 }
 

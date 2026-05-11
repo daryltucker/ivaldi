@@ -19,7 +19,7 @@ When an MCP client connects to Ivaldi, it sends an `initialize` request. This is
 **When to call it:**
 - At the start of a new agent session
 - When switching to a different project context
-- Optional but recommended for full functionality
+- Optional but recommended for full functionality.
 
 > **Note**: Ivaldi gracefully handles missing initialization - tools work without it using defaults.
 
@@ -32,6 +32,7 @@ When an MCP client connects to Ivaldi, it sends an `initialize` request. This is
 ## 2. Mutation (The Scalpel)
 - [ ] **Prefer Structural Edits**: Always try `edit_file(path, content, pattern)` first.
     - *Example*: Use `vecq` patterns like `.functions[] | select(.name == "target")`.
+    - *Markdown Example*: Use `.headers[] | select(.content == "Title")` or `.list_items[] | select(.checked == false)`
 - [ ] **Fallbacks**: Use `grep` or `from_line`/`to_line` only if AST matching is impossible.
 - [ ] **Full Overwrites**: Use `write_file(path, content)` only for new files or complete refactors.
 
@@ -40,17 +41,29 @@ When an MCP client connects to Ivaldi, it sends an `initialize` request. This is
 | Selector | When to Use | Example |
 |----------|-------------|---------|
 | `query` (AST) | Editing functions, classes, structured code blocks. You know the symbol name. | `query=".functions[] \| select(.name==\"main\")"` |
+| `query` (Markdown) | Editing headers, list items, tables in Markdown. | `query=".headers[] \| select(.content==\"Infrastructure\")"` |
 | `grep` (regex) | Matching a specific line pattern. **Single-line replacements only**. | `grep="^TODO:"` |
 | `from_line/to_line` | You've viewed the file and know the exact range. Non-code files (markdown, config). | `from_line=10, to_line=15` |
 
 > **⚠️ Note**: `grep` replaces exactly ONE matched line. For multi-line edits, use `from_line/to_line` or `query`.
 
+### Markdown AST Schema
+> **Important**: When editing Markdown files, the AST field names differ from code files:
+> - Headers: Use `.content` (NOT `.text`), `.level`, `.line_start`
+> - List Items: Use `.content`, `.task`, `.checked`, `.line_start`
+> - Tables: Use `.tables[].rows[].cells[]`
+>
+> See [Markdown AST Schema](../internal/MARKDOWN_AST_SCHEMA.md) for complete reference.
+
 ## 3. Deep Analysis (The Microscope)
 - [ ] **Project Structure**: Use `analyze_dir` for a high-level recursive summary.
 - [ ] **Code Intelligence**: Use `search_code` to find functions, classes, or references.
-    - *Friendly Mode*: `category="functions", name_pattern=".*controller"`
+    - *Friendly Mode (Code)*: `category="functions", name_pattern=".*controller"`
+    - *Friendly Mode (Markdown)*: `category="headers"` or `category="list_items"`
     - *Power Mode*: `query=".functions[] | select(.visibility == \"pub\")"`
+    - *Power Mode (Markdown)*: `query=".headers[] | select(.level == 2)"`
     - **⚠️ Note**: Complex AST queries may timeout. Use `IVALDI_SEARCH_TIMEOUT=60` for large codebases or complex queries.
+    - **Markdown Support**: For Markdown files, see [Markdown AST Schema](../internal/MARKDOWN_AST_SCHEMA.md)
 
 ## 4. System Observation (The Black Box)
 - [ ] **History**: Use `git_read(action="blame|log|diff")` to understand *why* code changed.

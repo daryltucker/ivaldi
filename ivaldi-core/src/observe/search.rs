@@ -23,6 +23,27 @@ use glob;
 /// - Respects `.agentignore` (signal-to-noise filter). `.gitignore` is opt-in.
 /// 
 /// **Usage**: Use to locate function definitions, class structures, or specific imports across a project without reading every file.
+/// 
+/// **Examples (Code)**:
+/// ```
+/// // Find all functions named "test_"
+/// { "category": "functions", "name_pattern": "test_.*" }
+/// 
+/// // Find public structs
+/// { "query": ".structs[] | select(.visibility == \"pub\")" }
+/// ```
+/// 
+/// **Examples (Markdown)**:
+/// ```
+/// // Find all level-2 headers
+/// { "category": "headers" }
+/// 
+/// // Find unchecked checkboxes
+/// { "category": "list_items", "name_pattern": ".*TODO.*" }
+/// 
+/// // Power query for code blocks
+/// { "query": ".code_blocks[] | select(.language? == \"rust\")" }
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SearchCodeArgs {
     /// Path to the file or directory to search
@@ -33,7 +54,8 @@ pub struct SearchCodeArgs {
     /// If omitted, use `category` and `name_pattern` (Friendly Mode).
     pub query: Option<String>,
     
-    /// Friendly Mode: Category to search "functions", "classes", "structs", "imports", "comments"
+    /// Friendly Mode: Category to search (code: "functions", "classes", "structs", "imports", "comments")
+/// or (markdown: "headers", "list_items", "tables", "code_blocks", "paragraphs", "links", "images")
     pub category: Option<String>,
 
     /// Friendly Mode: Regex to match name (e.g. "search_.*")
@@ -55,6 +77,15 @@ pub struct SearchCodeArgs {
     /// Agents can bypass it with `respect_agentignore: false`.
     #[serde(default = "default_true")]
     pub respect_agentignore: bool,
+    
+    /// Maximum results to return (default: 0 = no limit)
+    /// Cannot exceed IVALDI_MAX_CONTENT if set.
+    #[serde(default)]
+    pub limit: usize,
+    
+    /// Skip N results (for pagination)
+    #[serde(default)]
+    pub offset: usize,
 }
 
 fn default_true() -> bool { true }
@@ -145,51 +176,52 @@ pub async fn search_code(args: SearchCodeArgs) -> IvaldiResponse<serde_json::Val
     // Construct the "Slurped" root
     let root = serde_json::Value::Array(asts);
     
+    // Build query string
     let query_string = if let Some(q) = &args.query {
-        q.clone()
-    } else {
-        // Construct friendly query
-        // Default to all nodes if no category
-        let base = match args.category.as_deref().map(|s| s.to_lowercase()) {
-            Some(c) if c.contains("function") => ".functions[]",
-            Some(c) if c.contains("class") => ".classes[]",
-            Some(c) if c.contains("struct") => ".structs[]",
-            Some(c) if c.contains("import") => ".imports[]",
-            Some(c) if c.contains("comment") => ".comments[]",
-            // TODO: Add more mappings as vecq standardizes them
-            Some(other) => return IvaldiResponse::from_error(IvaldiError::InvalidArgument(format!("Unknown category: {}. Try functions, classes, structs, imports, comments.", other))),
-            None => ".[] | .[]?" // Flatten array of files, then try to get any top level array? No, that's risky.
-                                // If no category, we default to "functions" or maybe we need to search ALL.
-                                // Searching ALL is hard in simple mode. Let's error if neither query nor category.
-        };
-
-        // If no category and no query, error out or default to something safe?
-        // Let's require at least one for now.
-        if args.category.is_none() && args.query.is_none() {
-             return IvaldiResponse::from_error(IvaldiError::InvalidArgument("Must provide either 'query' (jq) OR 'category' (friendly).".into()));
-        }
-
-        let mut q = if args.category.is_none() {
-            // Fallback for purely regex based search? Not supported yet without category.
-            // Maybe ".[] | to_entries[] | .value[]" ? Too generic.
-             return IvaldiResponse::from_error(IvaldiError::InvalidArgument("Friendly mode requires a 'category'.".into()));
+        // User provided a query - needs ".[]" for array iteration unless already included
+        if q.contains(".[]") {
+            q.clone()
         } else {
-             base.to_string()
-        };
-
-        // Append filters
-        if let Some(pattern) = &args.name_pattern {
-             // select(.name | test("pattern"))
-             // Escape quotes in pattern? User provides regex string.
-             q.push_str(&format!(" | select(.name? | test(\"{}\"))", pattern.replace("\"", "\\\"")));
+            format!(".[] | {}", q)
         }
+    } else if let Some(cat) = &args.category {
+        // Friendly mode with category - need to add array iteration prefix
+        let base = match cat.to_lowercase().as_str() {
+            c if c.contains("function") => ".functions[]",
+            c if c.contains("class") => ".classes[]",
+            c if c.contains("struct") => ".structs[]",
+            c if c.contains("import") => ".imports[]",
+            c if c.contains("comment") => ".comments[]",
+            // Markdown categories
+            c if c.contains("header") => ".headers[]",
+            c if c.contains("list_item") => ".list_items[]",
+            c if c.contains("table") => ".tables[]",
+            c if c.contains("code_block") => ".code_blocks[]",
+            c if c.contains("paragraph") => ".paragraphs[]",
+            c if c.contains("link") => ".links[]",
+            c if c.contains("image") => ".images[]",
+            other => return IvaldiResponse::from_error(IvaldiError::InvalidArgument(
+                format!("Unknown category: {}. Try: functions, classes, structs, imports, comments, headers, list_items, tables, code_blocks, paragraphs, links, images.", other)
+            )),
+        };
+        let mut q = format!(".[] | {}", base);
         
-        // Add implicit array iterator for slurp root?
-        // The root is an Array of Files. 
-        // Our 'base' (e.g. .functions[]) expects to operate on a File Object.
-        // So we need to map over the root array.
-        // Query: `.[] | .functions[] | ...`
-        format!(".[] | {}", q)
+        // For Markdown categories, we filter by content, not name
+        if cat.to_lowercase().contains("header") || cat.to_lowercase().contains("list_item") || cat.to_lowercase().contains("table") {
+            if let Some(pattern) = &args.name_pattern {
+                q.push_str(&format!(" | select(.content? | test(\"{}\"))", pattern.replace("\"", "\\\"")));
+            }
+        } else {
+            // Code categories use name filter
+            if let Some(pattern) = &args.name_pattern {
+                q.push_str(&format!(" | select(.name? | test(\"{}\"))", pattern.replace("\"", "\\\"")));
+            }
+        }
+        q
+    } else {
+        return IvaldiResponse::from_error(IvaldiError::InvalidArgument(
+            "Must provide either 'query' (jq) OR 'category' (friendly).".into()
+        ));
     };
     
     let results = match query_json(&root, &query_string) {
@@ -197,12 +229,205 @@ pub async fn search_code(args: SearchCodeArgs) -> IvaldiResponse<serde_json::Val
         Err(e) => return IvaldiResponse::error("query_error", e.to_string()),
     };
     
-    // 4. Return with advisory if no results found
-    let mut advisory_msg = format!("Scanned {} files.", processed_count);
-    if results.is_empty() {
-        advisory_msg.push_str(" Query returned 0 matches.");
+    // Apply offset
+    let start = std::cmp::min(args.offset, results.len());
+    let mut results: Vec<serde_json::Value> = results.into_iter().skip(start).collect();
+    
+    // Apply limit (with IVALDI_MAX_CONTENT cap)
+    let effective_limit = if let Some(max_content) = std::env::var("IVALDI_MAX_CONTENT")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok()) 
+    {
+        let agent_limit = if args.limit > 0 { args.limit } else { max_content };
+        std::cmp::min(agent_limit, max_content)
+    } else if args.limit > 0 { 
+        args.limit 
+    } else { 
+        results.len() 
+    };
+    
+    let mut was_limited = false;
+    let results_len = results.len();
+    if effective_limit > 0 && results_len > effective_limit {
+        results.truncate(effective_limit);
+        was_limited = true;
     }
     
-    IvaldiResponse::success(serde_json::Value::Array(results))
-        .with_advisory(crate::AdvisoryMessage::tool_info(advisory_msg))
+    // 4. Return with advisory
+    let final_results = results;
+    let returned_count = final_results.len();
+    let mut response = IvaldiResponse::success(serde_json::Value::Array(final_results));
+    
+    // Add advisory about truncation if needed
+    #[allow(clippy::collapsible_if)]
+    if let Some(max_content) = std::env::var("IVALDI_MAX_CONTENT")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok()) 
+    {
+        if args.limit > 0 && args.limit > max_content {
+            response = response.with_advisory(
+                crate::AdvisoryMessage::tool_warn(
+                    format!("Requested limit {} exceeds IVALDI_MAX_CONTENT={}. Capped.", 
+                             args.limit, max_content)
+                )
+            );
+        }
+    }
+    
+    if was_limited {
+        response = response.with_advisory(
+            crate::AdvisoryMessage::tool_warn(
+                format!("Content truncated to {} results (IVALDI_MAX_CONTENT cap or limit)", effective_limit)
+            )
+        );
+    }
+    
+    if returned_count > 0 {
+        response = response.with_advisory(
+            crate::AdvisoryMessage::tool_info(
+                format!("Scanned {} files. Returned {} results.", processed_count, returned_count)
+            )
+        );
+    } else {
+        response = response.with_advisory(
+            crate::AdvisoryMessage::tool_info(
+                format!("Scanned {} files. Query returned 0 matches.", processed_count)
+            )
+        );
+    }
+    
+    response
+}
+
+// ============================================================================
+// TESTS for IVALDI_MAX_CONTENT
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[tokio::test]
+    async fn test_search_code_no_max_content() {
+        // Test: Without IVALDI_MAX_CONTENT set, all results returned
+        unsafe { env::remove_var("IVALDI_MAX_CONTENT"); }
+        
+        let temp_dir = tempfile::tempdir().unwrap();
+        // Create a single Rust file with functions
+        let rust_code = r#"
+fn function_0() { let x = 1; }
+fn function_1() { let x = 2; }
+fn function_2() { let x = 3; }
+fn function_3() { let x = 4; }
+fn function_4() { let x = 5; }
+"#;
+        let file_path = temp_dir.path().join("test.rs");
+        std::fs::write(&file_path, rust_code).unwrap();
+        
+        let args = SearchCodeArgs {
+            path: file_path.clone(),  // Use single file for simplicity
+            query: Some(".functions[]".to_string()),
+            category: None,
+            name_pattern: None,
+            language: Some("rust".to_string()),
+            depth: 1,
+            pattern: None,
+            respect_agentignore: false,
+            limit: 0,
+            offset: 0,
+        };
+        
+        let response = search_code(args).await;
+        assert!(!response.is_error, "Should not error: {:?}", response.error);
+        if let Some(content) = response.content {
+            let arr = content.as_array().unwrap();
+            assert_eq!(arr.len(), 5, "Should return all 5 functions, got: {}", arr.len());
+        } else {
+            panic!("No content in response");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_search_code_with_limit() {
+        // Test: limit parameter works
+        unsafe { env::remove_var("IVALDI_MAX_CONTENT"); }
+        
+        let temp_dir = tempfile::tempdir().unwrap();
+        let rust_code = r#"
+fn function_0() { let x = 1; }
+fn function_1() { let x = 2; }
+fn function_2() { let x = 3; }
+fn function_3() { let x = 4; }
+fn function_4() { let x = 5; }
+fn function_5() { let x = 6; }
+fn function_6() { let x = 7; }
+fn function_7() { let x = 8; }
+fn function_8() { let x = 9; }
+fn function_9() { let x = 10; }
+"#;
+        let file_path = temp_dir.path().join("test.rs");
+        std::fs::write(&file_path, rust_code).unwrap();
+        
+        let args = SearchCodeArgs {
+            path: file_path,
+            query: Some(".functions[]".to_string()),
+            category: None,
+            name_pattern: None,
+            language: Some("rust".to_string()),
+            depth: 1,
+            pattern: None,
+            respect_agentignore: false,
+            limit: 3,
+            offset: 0,
+        };
+        
+        let response = search_code(args).await;
+        assert!(!response.is_error, "Should not error: {:?}", response.error);
+        if let Some(content) = response.content {
+            let arr = content.as_array().unwrap();
+            assert_eq!(arr.len(), 3, "Should return only 3 results due to limit, got: {}", arr.len());
+        } else {
+            panic!("No content in response");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_search_code_with_offset() {
+        // Test: offset parameter works for pagination
+        unsafe { env::remove_var("IVALDI_MAX_CONTENT"); }
+        
+        let temp_dir = tempfile::tempdir().unwrap();
+        let rust_code = r#"
+fn function_0() { let x = 1; }
+fn function_1() { let x = 2; }
+fn function_2() { let x = 3; }
+fn function_3() { let x = 4; }
+fn function_4() { let x = 5; }
+"#;
+        let file_path = temp_dir.path().join("test.rs");
+        std::fs::write(&file_path, rust_code).unwrap();
+        
+        let args = SearchCodeArgs {
+            path: file_path,
+            query: Some(".functions[]".to_string()),
+            category: None,
+            name_pattern: None,
+            language: Some("rust".to_string()),
+            depth: 1,
+            pattern: None,
+            respect_agentignore: false,
+            limit: 2,
+            offset: 2,
+        };
+        
+        let response = search_code(args).await;
+        assert!(!response.is_error, "Should not error: {:?}", response.error);
+        if let Some(content) = response.content {
+            let arr = content.as_array().unwrap();
+            assert_eq!(arr.len(), 2, "Should return 2 results starting from offset 2, got: {}", arr.len());
+        } else {
+            panic!("No content in response");
+        }
+    }
 }

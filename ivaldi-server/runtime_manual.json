@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
+  "version": "1.0.5",
   "protocol": "mcp-2024-11-05",
   "generated_at": "build-time",
   "tools": [
@@ -57,7 +57,7 @@
     },
     {
       "name": "read_file",
-      "description": "Arguments for the read_file tool\n\n**Behavior**: Reads file content. **Safety**: - **Blast Shield**: 10MB limit. - **Binary Protection**: Fails on binary files. - **Smart Truncation**: If no lines specified and >1000 lines, returns head (500) + tail (500). **Usage**: 1. Read without args first. 2. If truncated, use `from_line`/`to_line` to read specific sections. 3. Use `query` for AST-based extraction (e.g., `.functions[]`). 4. Use `grep` for regex pattern matching.",
+      "description": "Arguments for the read_file tool\n\n**Behavior**: Reads file content. **Safety**: - **Blast Shield**: 10MB limit. - **Binary Protection**: Fails on binary files. - **Smart Truncation**: If no lines specified and >1000 lines, returns head (500) + tail (500). **Usage**: 1. Read without args first. 2. If truncated, use `from_line`/`to_line` to read specific sections. 3. Use `query` for AST-based extraction (e.g., \".functions[]\"). 4. Use `grep` for regex pattern matching.",
       "inputSchema": {
         "properties": {
           "context_lines": {
@@ -80,6 +80,12 @@
             "description": "Regex pattern for line matching (e.g., \"^use \", \"TODO:\")",
             "type": "string"
           },
+          "limit": {
+            "description": "Maximum content bytes to return (default: 0 = no limit) Cannot exceed IVALDI_MAX_CONTENT if set.",
+            "default": 0,
+            "type": "integer",
+            "minimum": 0
+          },
           "path": {
             "description": "Path to the file to read",
             "type": "string"
@@ -95,7 +101,7 @@
           }
         },
         "title": "ReadFileArgs",
-        "description": "Arguments for the read_file tool\n\n**Behavior**: Reads file content. **Safety**: - **Blast Shield**: 10MB limit. - **Binary Protection**: Fails on binary files. - **Smart Truncation**: If no lines specified and >1000 lines, returns head (500) + tail (500). **Usage**: 1. Read without args first. 2. If truncated, use `from_line`/`to_line` to read specific sections. 3. Use `query` for AST-based extraction (e.g., `.functions[]`). 4. Use `grep` for regex pattern matching.",
+        "description": "Arguments for the read_file tool\n\n**Behavior**: Reads file content. **Safety**: - **Blast Shield**: 10MB limit. - **Binary Protection**: Fails on binary files. - **Smart Truncation**: If no lines specified and >1000 lines, returns head (500) + tail (500). **Usage**: 1. Read without args first. 2. If truncated, use `from_line`/`to_line` to read specific sections. 3. Use `query` for AST-based extraction (e.g., \".functions[]\"). 4. Use `grep` for regex pattern matching.",
         "type": "object",
         "required": [
           "path"
@@ -430,15 +436,21 @@
     },
     {
       "name": "analyze_file",
-      "description": "Arguments for the analyze_file tool\n\n**Behavior**: Performs deep analysis of a single file, extracting symbols (functions, classes) and metadata. **Usage**: Use to search the codebase for specific patterns or symbols. Supports friendly and power modes.",
+      "description": "Arguments for the analyze_file tool\n\n**Behavior**: Performs deep analysis of a single file, extracting symbols (functions, classes) and metadata. **Usage**: Use to search the codebase for specific patterns or symbols. Supports friendly and power modes.\n\n**Examples**: ```json // Analyze a Rust file { \"path\": \"src/main.rs\" }\n\n// Analyze a Markdown file (uses vecq AST parsing) { \"path\": \"README.md\" }\n\n// Analyze with content limit { \"path\": \"src/main.rs\", \"limit\": 5000 } ```",
       "inputSchema": {
         "properties": {
+          "limit": {
+            "description": "Maximum content bytes to return (default: 0 = no limit) Cannot exceed IVALDI_MAX_CONTENT if set.",
+            "default": 0,
+            "type": "integer",
+            "minimum": 0
+          },
           "path": {
             "type": "string"
           }
         },
         "title": "AnalyzeFileArgs",
-        "description": "Arguments for the analyze_file tool\n\n**Behavior**: Performs deep analysis of a single file, extracting symbols (functions, classes) and metadata. **Usage**: Use to search the codebase for specific patterns or symbols. Supports friendly and power modes.",
+        "description": "Arguments for the analyze_file tool\n\n**Behavior**: Performs deep analysis of a single file, extracting symbols (functions, classes) and metadata. **Usage**: Use to search the codebase for specific patterns or symbols. Supports friendly and power modes.\n\n**Examples**: ```json // Analyze a Rust file { \"path\": \"src/main.rs\" }\n\n// Analyze a Markdown file (uses vecq AST parsing) { \"path\": \"README.md\" }\n\n// Analyze with content limit { \"path\": \"src/main.rs\", \"limit\": 5000 } ```",
         "type": "object",
         "required": [
           "path"
@@ -448,11 +460,11 @@
     },
     {
       "name": "search_code",
-      "description": "Arguments for the search_code tool\n\n**Behavior**: Executes AST-aware structural queries (jq-style) against code files.\n\n**Modes**: - **Friendly Mode**: Use `category` (e.g., \"functions\") and `name_pattern` (regex) to find elements without writing jq. - **Power Mode**: Use `query` (jq) for high-precision extraction of specific code elements.\n\n**Safety**: - Max depth: 5 by default. - Respects `.agentignore` (signal-to-noise filter). `.gitignore` is opt-in.\n\n**Usage**: Use to locate function definitions, class structures, or specific imports across a project without reading every file.",
+      "description": "Arguments for the search_code tool\n\n**Behavior**: Executes AST-aware structural queries (jq-style) against code files.\n\n**Modes**: - **Friendly Mode**: Use `category` (e.g., \"functions\") and `name_pattern` (regex) to find elements without writing jq. - **Power Mode**: Use `query` (jq) for high-precision extraction of specific code elements.\n\n**Safety**: - Max depth: 5 by default. - Respects `.agentignore` (signal-to-noise filter). `.gitignore` is opt-in.\n\n**Usage**: Use to locate function definitions, class structures, or specific imports across a project without reading every file.\n\n**Examples (Code)**: ``` // Find all functions named \"test_\" { \"category\": \"functions\", \"name_pattern\": \"test_.*\" }\n\n// Find public structs { \"query\": \".structs[] | select(.visibility == \\\"pub\\\")\" } ```\n\n**Examples (Markdown)**: ``` // Find all level-2 headers { \"category\": \"headers\" }\n\n// Find unchecked checkboxes { \"category\": \"list_items\", \"name_pattern\": \".*TODO.*\" }\n\n// Power query for code blocks { \"query\": \".code_blocks[] | select(.language? == \\\"rust\\\")\" } ```",
       "inputSchema": {
         "properties": {
           "category": {
-            "description": "Friendly Mode: Category to search \"functions\", \"classes\", \"structs\", \"imports\", \"comments\"",
+            "description": "Friendly Mode: Category to search (code: \"functions\", \"classes\", \"structs\", \"imports\", \"comments\") or (markdown: \"headers\", \"list_items\", \"tables\", \"code_blocks\", \"paragraphs\", \"links\", \"images\")",
             "type": "string"
           },
           "depth": {
@@ -465,9 +477,21 @@
             "description": "Optional language override (e.g., \"rust\", \"python\") Only applies when searching a single file.",
             "type": "string"
           },
+          "limit": {
+            "description": "Maximum results to return (default: 0 = no limit) Cannot exceed IVALDI_MAX_CONTENT if set.",
+            "default": 0,
+            "type": "integer",
+            "minimum": 0
+          },
           "name_pattern": {
             "description": "Friendly Mode: Regex to match name (e.g. \"search_.*\")",
             "type": "string"
+          },
+          "offset": {
+            "description": "Skip N results (for pagination)",
+            "default": 0,
+            "type": "integer",
+            "minimum": 0
           },
           "path": {
             "description": "Path to the file or directory to search",
@@ -488,7 +512,7 @@
           }
         },
         "title": "SearchCodeArgs",
-        "description": "Arguments for the search_code tool\n\n**Behavior**: Executes AST-aware structural queries (jq-style) against code files.\n\n**Modes**: - **Friendly Mode**: Use `category` (e.g., \"functions\") and `name_pattern` (regex) to find elements without writing jq. - **Power Mode**: Use `query` (jq) for high-precision extraction of specific code elements.\n\n**Safety**: - Max depth: 5 by default. - Respects `.agentignore` (signal-to-noise filter). `.gitignore` is opt-in.\n\n**Usage**: Use to locate function definitions, class structures, or specific imports across a project without reading every file.",
+        "description": "Arguments for the search_code tool\n\n**Behavior**: Executes AST-aware structural queries (jq-style) against code files.\n\n**Modes**: - **Friendly Mode**: Use `category` (e.g., \"functions\") and `name_pattern` (regex) to find elements without writing jq. - **Power Mode**: Use `query` (jq) for high-precision extraction of specific code elements.\n\n**Safety**: - Max depth: 5 by default. - Respects `.agentignore` (signal-to-noise filter). `.gitignore` is opt-in.\n\n**Usage**: Use to locate function definitions, class structures, or specific imports across a project without reading every file.\n\n**Examples (Code)**: ``` // Find all functions named \"test_\" { \"category\": \"functions\", \"name_pattern\": \"test_.*\" }\n\n// Find public structs { \"query\": \".structs[] | select(.visibility == \\\"pub\\\")\" } ```\n\n**Examples (Markdown)**: ``` // Find all level-2 headers { \"category\": \"headers\" }\n\n// Find unchecked checkboxes { \"category\": \"list_items\", \"name_pattern\": \".*TODO.*\" }\n\n// Power query for code blocks { \"query\": \".code_blocks[] | select(.language? == \\\"rust\\\")\" } ```",
         "type": "object",
         "required": [
           "path"

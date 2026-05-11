@@ -30,11 +30,27 @@
 
 ### 1. Installation
 
-| Method | speed | Pre-compiled? | Action |
-| :--- | :--- | :--- | :--- |
-| **Cargo Binstall** | ⚡ Instant | **YES** | `cargo binstall --git https://github.com/daryltucker/ivaldi-mcp ivaldi-cli ivaldi-server` |
-| **Direct Download**| ⚡ Instant | **YES** | [Download latest release](https://github.com/daryltucker/ivaldi-mcp/releases) |
-| **Cargo Install** | 🐢 Slow | **NO** (Source) | `cargo install --git https://github.com/daryltucker/ivaldi-mcp ivaldi-cli ivaldi-server` |
+> ⚠️ **Important:** Always use `--locked` when installing from git. This pins
+> dependency versions (including any binary dependencies) to the workspace
+> `Cargo.lock`. Without `--locked`, cargo may resolve newer dependencies
+> that download incompatible prebuilt binaries.
+
+**Option A: Install via Cargo (Recommended)**
+```bash
+cargo install --git https://github.com/daryltucker/ivaldi-mcp --locked ivaldi-cli ivaldi-server
+```
+
+**Option B: Install individual binaries**
+```bash
+cargo install --git https://github.com/daryltucker/ivaldi-mcp --locked ivaldi-cli
+cargo install --git https://github.com/daryltucker/ivaldi-mcp --locked ivaldi-server
+```
+
+**Option C: Using cargo-binstall (Faster)**
+```bash
+cargo install cargo-binstall --locked
+cargo binstall --git https://github.com/daryltucker/ivaldi-mcp ivaldi-cli ivaldi-server
+```
 
 ### 2. Configure
 
@@ -66,7 +82,6 @@ Add this to your `claude_config.json`:
 
 > **Tip**: Create a `.agentignore` file in your project root to filter out noise (build artifacts, lockfiles, vendored code). `.agentignore` works like `.gitignore` but is agent-managed and respected by `find_files`, `analyze_dir`, `list_dir`, and `search_code`. Use `respect_agentignore: false` per tool call to bypass it when needed. `.gitignore` is opt-in via `IVALDI_ENABLE_GITIGNORE=true`.
 
-
 ## 📖 Documentation
 
 - [**Agent Manual (Auto-generated)**](docs/MAN_AGENT.json) - Direct schema for agents.
@@ -74,3 +89,21 @@ Add this to your `claude_config.json`:
 - [**Advisory Catalog**](docs/ADVISORIES.md) - All heuristic advisory messages.
 - [**ACL Reference**](docs/ACL.md) - Access control via Cedar policies.
 - [**Troubleshooting Guide**](docs/TROUBLESHOOTING.md) - Common issues and solutions.
+
+## 🧪 Testing
+
+The project uses a tiered testing framework. It is **mandatory** to run the complete test suite before any release or major changes.
+
+```bash
+# Run the COMPLETE test suite (All tiers, no exceptions - Release Blocker)
+make test
+
+# Run Rust-only tests (Unit & Integration)
+make test-unit
+```
+
+---
+
+> *"The best forge is one that shapes metal without scars. Every cut is intentional."*
+
+— Ivaldi, Agent of Precision Operations

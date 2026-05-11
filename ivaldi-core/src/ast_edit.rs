@@ -59,6 +59,10 @@ pub enum RichEditError {
     #[error("Node missing line_end")]
     MissingLineEnd,
 
+    #[error("Indentation mismatch: replacement has {0} spaces, target has {1} spaces. Write at indent 0 (tool shifts) or at exact target indent ({1} spaces).")]
+    IndentationMismatch(usize, usize),
+
+
     #[error("Vecq error: {0}")]
     Vecq(#[from] vecq::error::VecqError),
 
@@ -89,7 +93,7 @@ pub async fn edit_content(
             edit_node(content, file_type, &query, replacement).await
         }
         EditSelector::Lines(start, end) => {
-            edit_lines(content, start, end, replacement)
+            edit_lines(content, start, end, replacement, true)
         }
         EditSelector::Grep(pattern) => {
             edit_grep(content, &pattern, replacement)
@@ -129,7 +133,7 @@ async fn edit_node(
         .and_then(|v: &Value| v.as_u64())
         .ok_or(RichEditError::MissingLineEnd)? as usize;
         
-    edit_lines(content, line_start, line_end, replacement)
+    edit_lines(content, line_start, line_end, replacement, false)
 }
 
 /// Build context for no match errors
@@ -435,6 +439,7 @@ fn edit_lines(
     start: usize, // 1-indexed
     end: usize,   // 1-indexed
     replacement: &str,
+    is_explicit_range: bool, // true if from_line/to_line was explicitly provided
 ) -> RichEditResult {
     let has_trailing_newline = content.ends_with('\n');
     let lines: Vec<&str> = content.lines().collect();
@@ -495,12 +500,10 @@ fn edit_lines(
             }
             heuristics_triggered.push("indentation_healing".to_string());
         
-        // CASE B: Replacement already has indentation that differs from target — note it.
+        // CASE B: Replacement already has indentation that differs from target — return error.
         } else if replacement_first_ws > 0 && replacement_first_ws != target_ws_count {
-            heuristics_triggered.push(format!(
-                "indentation_mismatch:repl={}:target={}",
-                replacement_first_ws, target_ws_count
-            ));
+            // Mode C: R≠0 AND R≠T → Hard error, no apply
+            return Err(RichEditError::IndentationMismatch(replacement_first_ws, target_ws_count));
         }
     }
 
@@ -509,6 +512,8 @@ fn edit_lines(
     // Compare TRIMMED content to handle whitespace differences between
     // agent replacement and file content.
     
+    // Skip anchor detection when explicit line range was provided
+    if !is_explicit_range {
     // Trim leading overlaps (compared to line immediately BEFORE start)
     if start > 1 && !replacement_lines.is_empty() {
         let before_line = lines[start - 2];
@@ -520,7 +525,10 @@ fn edit_lines(
             heuristics_triggered.push("anchor_trimming_leading".to_string());
         }
     }
+    } // end if !is_explicit_range for leading anchor
     
+    // Skip if explicit range was provided
+    if !is_explicit_range {
     // Trim trailing overlaps (compared to line immediately AFTER end)
     if end < lines.len() && !replacement_lines.is_empty() {
         let after_line = lines[end];
@@ -531,6 +539,7 @@ fn edit_lines(
             replacement_lines.pop();
             heuristics_triggered.push("anchor_trimming_trailing".to_string());
         }
+    } // end if !is_explicit_range for trailing anchor
     }
 
     let mut new_content = Vec::new();
@@ -634,7 +643,7 @@ fn edit_grep(
     let (line_start, _) = matches[0];
     let line_end = line_start;
 
-    let mut outcome = edit_lines(content, line_start, line_end, replacement)?;
+    let mut outcome = edit_lines(content, line_start, line_end, replacement, false)?;
 
     // Heuristic: if grep matched 1 line but replacement is multi-line, note it
     if replacement.lines().count() > 1 {
@@ -711,10 +720,14 @@ mod tests {
         // Agent includes line2 and line4 as anchors
         let replacement = "line2\nNEW_LINE3\nline4";
         let outcome = edit_content(content, FileType::Text, selector, replacement).await.unwrap();
-        // Overlaps should be trimmed
-        assert_eq!(outcome.content, "line1\nline2\nNEW_LINE3\nline4\nline5");
-        assert!(outcome.heuristics_triggered.contains(&"anchor_trimming_leading".to_string()));
-        assert!(outcome.heuristics_triggered.contains(&"anchor_trimming_trailing".to_string()));
+        // When using explicit from_line/to_line (EditSelector::Lines),
+        // anchor detection should be DISABLED.
+        // So "line2" and "line4" should appear TWICE (duplicated)
+        assert!(outcome.content.contains("line2\nline2"));
+        assert!(outcome.content.contains("line4\nline4"));
+        // Should NOT have anchor_trimming heuristics
+        assert!(!outcome.heuristics_triggered.contains(&"anchor_trimming_leading".to_string()));
+        assert!(!outcome.heuristics_triggered.contains(&"anchor_trimming_trailing".to_string()));
     }
 
     #[tokio::test]

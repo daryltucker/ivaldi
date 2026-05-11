@@ -20,6 +20,8 @@ fn world() { println!("world"); }
         depth: 1,
         pattern: None,
         respect_agentignore: true,
+        limit: 0,
+        offset: 0,
     };
 
     let response = search_code(args).await;
@@ -54,6 +56,8 @@ class Bar:
         depth: 1,
         pattern: None,
         respect_agentignore: true,
+        limit: 0,
+        offset: 0,
     };
 
     let response = search_code(args).await;
@@ -90,6 +94,8 @@ async fn test_search_code_respects_gitignore() {
         depth: 2,
         pattern: None,
         respect_agentignore: true,
+        limit: 0,
+        offset: 0,
     };
 
     let response = search_code(args).await;
