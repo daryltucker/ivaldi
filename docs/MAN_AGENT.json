@@ -371,6 +371,11 @@
             "description": "Optional: Scope limitation (file, directory, project) Defaults to \"file\" for safety",
             "type": "string"
           },
+          "smart": {
+            "description": "Use smart (global) replacement after AST validation (default: false) When true, performs global string replacement to catch all references. When false, only replaces the specific AST nodes found.",
+            "default": false,
+            "type": "boolean"
+          },
           "symbol_type": {
             "description": "Optional: Specific type of symbol (function, variable, class, etc.) If None, will attempt to match any symbol type",
             "type": "string"
@@ -407,28 +412,28 @@
     },
     {
       "name": "analyze_dir",
-      "description": "Arguments for the analyze_dir tool\n\n**Behavior**: Provides a high-level summary of a directory's structure and contents. **Usage**: Use to quickly understand the layout of a project or a large subdirectory.",
+      "description": "Arguments for the analyze_dir tool\n\n**Behavior**: Provides a comprehensive summary of a directory's structure, including file counts, total size, file extensions, and a hierarchical tree view. **Output**: Returns `DirAnalysis` with: - `file_count`: Number of files at/below max_depth - `dir_count`: Number of directories - `total_size_bytes`: Sum of all file sizes - `extensions`: Map of file extensions → count (e.g., {\"rs\": 12, \"md\": 3}) - `structure`: Nested tree of FileNode objects showing hierarchy (directories first, sorted alphabetically)\n\n**Usage**: Use to understand project layout, file distribution, or directory composition. Safe for large directories (respects max_depth limit). **Example Output**: See examples in docs/examples/analyze_dir_output.json",
       "inputSchema": {
         "properties": {
           "max_depth": {
-            "description": "Maximum depth (default: 5)",
+            "description": "Maximum depth to traverse (default: 5). Higher values give more detail but may be slower. Set to 2-3 for quick overview, 5+ for detailed structure.",
             "default": 5,
             "type": "integer",
             "minimum": 0
           },
           "path": {
-            "description": "Path to analyze (default: \".\")",
+            "description": "Path to analyze (default: \".\"). Can be relative or absolute.",
             "default": ".",
             "type": "string"
           },
           "respect_agentignore": {
-            "description": "Whether to respect .agentignore (default: true) .agentignore is a signal-to-noise filter, not a security boundary. Agents can bypass it with `respect_agentignore: false`.",
+            "description": "Whether to respect .agentignore (default: true). .agentignore is a signal-to-noise filter, not a security boundary. Agents can bypass it with `respect_agentignore: false` to include all entries.",
             "default": true,
             "type": "boolean"
           }
         },
         "title": "AnalyzeDirArgs",
-        "description": "Arguments for the analyze_dir tool\n\n**Behavior**: Provides a high-level summary of a directory's structure and contents. **Usage**: Use to quickly understand the layout of a project or a large subdirectory.",
+        "description": "Arguments for the analyze_dir tool\n\n**Behavior**: Provides a comprehensive summary of a directory's structure, including file counts, total size, file extensions, and a hierarchical tree view. **Output**: Returns `DirAnalysis` with: - `file_count`: Number of files at/below max_depth - `dir_count`: Number of directories - `total_size_bytes`: Sum of all file sizes - `extensions`: Map of file extensions → count (e.g., {\"rs\": 12, \"md\": 3}) - `structure`: Nested tree of FileNode objects showing hierarchy (directories first, sorted alphabetically)\n\n**Usage**: Use to understand project layout, file distribution, or directory composition. Safe for large directories (respects max_depth limit). **Example Output**: See examples in docs/examples/analyze_dir_output.json",
         "type": "object",
         "additionalProperties": false,
         "required": []
@@ -591,11 +596,11 @@
     },
     {
       "name": "read_syslogs",
-      "description": "Arguments for the read_syslogs tool",
+      "description": "Arguments for the read_syslogs tool\n\n**Platform**: Linux only (systemd journald). Non-Linux systems return error \"Systemd logs are only available on Linux\". **Behavior**: Reads systemd journal logs with optional filtering by service, log level, time window, or message pattern. Returns structured log entries with timestamp, severity, message, service name, and process ID.\n\n**Permissions**: Requires read access to systemd journal. On most systems, members of `systemd-journal` group can read logs. Root can read all logs.\n\n**Output**: Array of LogEntry objects with:\n- `timestamp`: RFC3339 formatted timestamp\n- `level`: Log severity (debug, info, notice, warning, error, critical, alert, emergency)\n- `message`: Log message text\n- `service`: systemd unit/service name (e.g., \"ivaldi-server\")\n- `pid`: Process ID (if available)\n- `fields`: Additional journal metadata (currently empty, reserved for future use)\n\n**Example**: See docs/examples/read_syslogs_output.json",
       "inputSchema": {
         "definitions": {
           "LogLevel": {
-            "description": "Log levels for filtering",
+            "description": "Log levels for filtering (ordered least→most severe). Filter includes specified level and above.",
             "type": "string",
             "enum": [
               "debug",
@@ -610,15 +615,15 @@
           }
         },
         "title": "ReadSyslogsArgs",
-        "description": "Arguments for the read_syslogs tool",
+        "description": "Arguments for the read_syslogs tool\n\n**Platform**: Linux only (systemd journald). Non-Linux systems return error \"Systemd logs are only available on Linux\". **Behavior**: Reads systemd journal logs with optional filtering by service, log level, time window, or message pattern. Returns structured log entries with timestamp, severity, message, service name, and process ID.\n\n**Permissions**: Requires read access to systemd journal. On most systems, members of `systemd-journal` group can read logs. Root can read all logs.\n\n**Output**: Array of LogEntry objects with:\n- `timestamp`: RFC3339 formatted timestamp\n- `level`: Log severity (debug, info, notice, warning, error, critical, alert, emergency)\n- `message`: Log message text\n- `service`: systemd unit/service name (e.g., \"ivaldi-server\")\n- `pid`: Process ID (if available)\n- `fields`: Additional journal metadata (currently empty, reserved for future use)\n\n**Example**: See docs/examples/read_syslogs_output.json",
         "type": "object",
         "properties": {
           "boot": {
-            "description": "Boot to query (e.g. \"current\", \"previous\")",
+            "description": "Boot to query. Optional. Examples: \"current\" (logs since last boot), \"previous\" (logs from previous boot). Useful for debugging crashes across reboots.",
             "type": "string"
           },
           "level": {
-            "description": "Minimum log level to include",
+            "description": "Minimum log level to include. Inclusive filter (e.g., 'warning' returns warning, error, critical, alert, emergency). Optional.",
             "anyOf": [
               {
                 "$ref": "#/definitions/LogLevel"
@@ -629,21 +634,21 @@
             ]
           },
           "limit": {
-            "description": "Maximum number of entries to return (default: 100)",
+            "description": "Maximum number of entries to return (default: 100). Capped at 1000 to prevent flooding. Most recent entries are returned first.",
             "default": 100,
             "type": "integer",
             "minimum": 0
           },
           "pattern": {
-            "description": "Regex pattern to search for in log messages",
+            "description": "Regex pattern to filter log messages. Only entries where MESSAGE field matches the pattern are returned. Regex syntax follows RE2. Optional.",
             "type": "string"
           },
           "service": {
-            "description": "systemd unit name (e.g. \"ivaldi-server\")",
+            "description": "systemd unit/service name to filter by (e.g., \"ivaldi-server\", \"ssh.service\", \"systemd-journald\"). Optional. Exact match required.",
             "type": "string"
           },
           "since": {
-            "description": "Time window to query (e.g. \"10m\", \"1h\", \"1d\" or ISO timestamp)",
+            "description": "Time window to query. Format: relative duration (\"5m\", \"10m\", \"30m\", \"1h\", \"1d\") or ISO 8601 timestamp (\"2026-05-22T10:30:00+00:00\"). Optional; if omitted, returns the most recent entries. Relative durations are calculated from now.",
             "type": "string"
           }
         },

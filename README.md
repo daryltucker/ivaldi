@@ -40,17 +40,13 @@
 cargo install --git https://github.com/daryltucker/ivaldi-mcp --locked ivaldi-cli ivaldi-server
 ```
 
-**Option B: Install individual binaries**
-```bash
-cargo install --git https://github.com/daryltucker/ivaldi-mcp --locked ivaldi-cli
-cargo install --git https://github.com/daryltucker/ivaldi-mcp --locked ivaldi-server
-```
-
-**Option C: Using cargo-binstall (Faster)**
+**Option B: Install pre-compiled binaries**
 ```bash
 cargo install cargo-binstall --locked
-cargo binstall --git https://github.com/daryltucker/ivaldi-mcp ivaldi-cli ivaldi-server
+cargo binstall --git https://github.com/daryltucker/ivaldi --locked --force -y ivaldi-cli
+cargo binstall --git https://github.com/daryltucker/ivaldi --locked --force -y ivaldi-server
 ```
+
 
 ### 2. Configure
 
@@ -86,6 +82,7 @@ Add this to your `claude_config.json`:
 
 - [**Agent Manual (Auto-generated)**](docs/MAN_AGENT.json) - Direct schema for agents.
 - [**Configuration Reference**](docs/CONFIGURATION.md) - ENV and CLI flag details.
+- [**Error Catalog**](docs/ERROR_CATALOG.md) - All error codes, causes, and recovery strategies.
 - [**Advisory Catalog**](docs/ADVISORIES.md) - All heuristic advisory messages.
 - [**ACL Reference**](docs/ACL.md) - Access control via Cedar policies.
 - [**Troubleshooting Guide**](docs/TROUBLESHOOTING.md) - Common issues and solutions.

@@ -75,10 +75,9 @@ pub async fn rename_symbol(
                         // AST Match Found!
                         let mut final_content: String;
                         let symbols_count: usize;
-                        let is_file_scope = args.scope.as_deref() == Some("file");
 
-                        if is_file_scope {
-                            // SMART HAMMER: We confirmed the symbol exists via AST, 
+                        if args.smart {
+                            // SMART HAMMER: We confirmed the symbol exists via AST,
                             // now perform global replace to catch all references (definitions, calls, etc.)
                             // as the current AST might be too shallow to catch them all surgically.
                             final_content = content.replace(&args.old_name, &args.new_name);
@@ -90,15 +89,15 @@ pub async fn rename_symbol(
                                 let line_start = node.get("line_start").and_then(|v| v.as_u64()).map(|v| v as usize).unwrap_or(0);
                                 let line_end = node.get("line_end").and_then(|v| v.as_u64()).map(|v| v as usize).unwrap_or(0);
                                 let node_content = node.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                                
+
                                 if line_start != 0 && !node_content.is_empty() {
                                     nodes_to_patch.push((line_start, line_end, node_content.to_string()));
                                 }
                             }
-                            
+
                             // Sort by line_start descending
                             nodes_to_patch.sort_by(|a, b| b.0.cmp(&a.0));
-                            
+
                             let mut current_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
                             let has_trailing_newline = content.ends_with('\n');
 
@@ -107,7 +106,7 @@ pub async fn rename_symbol(
                                 let new_node_lines: Vec<String> = new_node_content.lines().map(|s| s.to_string()).collect();
                                 current_lines.splice((start-1)..end, new_node_lines);
                             }
-                            
+
                             final_content = current_lines.join("\n");
                             if has_trailing_newline && !final_content.ends_with('\n') {
                                 final_content.push('\n');
@@ -142,7 +141,7 @@ pub async fn rename_symbol(
                             response.advisory.push(AdvisoryMessage::tool_info(format!(
                                 "Renamed '{}' -> '{}' in {} locations using {} (scope: {}).",
                                 args.old_name, args.new_name, symbols_count,
-                                if is_file_scope { "Smart Hammer (AST-validated global replace)" } else { "Surgical Scalpel (AST node only)" },
+                                if args.smart { "Smart Hammer (AST-validated global replace)" } else { "Surgical Scalpel (AST node only)" },
                                 args.scope.as_deref().unwrap_or("default")
                             )));
     

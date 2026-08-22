@@ -99,6 +99,11 @@ pub struct RenameSymbolArgs {
     /// Optional: Scope limitation (file, directory, project)
     /// Defaults to "file" for safety
     pub scope: Option<String>,
+    /// Use smart (global) replacement after AST validation (default: false)
+    /// When true, performs global string replacement to catch all references.
+    /// When false, only replaces the specific AST nodes found.
+    #[serde(default)]
+    pub smart: bool,
 }
 
 fn default_false() -> bool {

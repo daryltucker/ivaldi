@@ -371,6 +371,11 @@
             "description": "Optional: Scope limitation (file, directory, project) Defaults to \"file\" for safety",
             "type": "string"
           },
+          "smart": {
+            "description": "Use smart (global) replacement after AST validation (default: false) When true, performs global string replacement to catch all references. When false, only replaces the specific AST nodes found.",
+            "default": false,
+            "type": "boolean"
+          },
           "symbol_type": {
             "description": "Optional: Specific type of symbol (function, variable, class, etc.) If None, will attempt to match any symbol type",
             "type": "string"
